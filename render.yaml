@@ -18,7 +18,7 @@ services:
         fromService:
           type: keyvalue
           name: slotforge-redis
-          property: hostport
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       # Leave empty to disable email delivery (the worker skips sending).
