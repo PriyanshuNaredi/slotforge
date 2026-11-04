@@ -16,7 +16,7 @@ services:
           property: connectionString
       - key: REDIS_ADDR
         fromService:
-          type: redis
+          type: keyvalue
           name: slotforge-redis
           property: hostport
       - key: JWT_SECRET
@@ -40,7 +40,7 @@ services:
       - key: API_PROXY_ORIGIN
         sync: false
 
-  - type: redis
+  - type: keyvalue
     name: slotforge-redis
     plan: free
     ipAllowList: []
