@@ -1,0 +1,26 @@
+.env
+.env.*
+!.env.example
+
+bin/
+dist/
+coverage/
+*.log
+
+.idea/
+.vscode/
+.DS_Store
+# Frontend (Next.js)
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+.eslintcache
+
+# Local agent tooling
+.agents/
+.zcode/
+.claude/
+.playwright-mcp/

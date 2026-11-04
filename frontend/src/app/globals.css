@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+/* Minimal replacement for tw-animate-css (Turbopack can't resolve its
+   style-only export). Covers the fade/zoom transitions used by dialogs,
+   selects and dropdowns. */
+@keyframes enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: scale(var(--tw-enter-scale, 1));
+  }
+}
+
+@keyframes exit {
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    transform: scale(var(--tw-exit-scale, 1));
+  }
+}
+
+@utility animate-in {
+  animation: enter 0.15s ease-out;
+}
+
+@utility animate-out {
+  animation: exit 0.15s ease-in;
+}
+
+@utility fade-in-0 {
+  --tw-enter-opacity: 0;
+}
+
+@utility fade-out-0 {
+  --tw-exit-opacity: 0;
+}
+
+@utility zoom-in-95 {
+  --tw-enter-scale: 0.95;
+}
+
+@utility zoom-out-95 {
+  --tw-exit-scale: 0.95;
+}
+
+/*
+ * SlotForge design system.
+ *
+ * Identity: warm stone neutrals ("ink & paper") with a single copper/ember
+ * brand accent used deliberately — CTAs, active states, key data. Black
+ * primary buttons, quiet borders, generous whitespace. No glass, no noise.
+ */
+
+:root {
+  --radius: 0.625rem;
+
+  --background: oklch(0.984 0.003 85);
+  --foreground: oklch(0.216 0.008 65);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.216 0.008 65);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.216 0.008 65);
+
+  --primary: oklch(0.245 0.008 65);
+  --primary-foreground: oklch(0.985 0.003 85);
+
+  --secondary: oklch(0.952 0.004 85);
+  --secondary-foreground: oklch(0.3 0.01 65);
+
+  --muted: oklch(0.952 0.004 85);
+  --muted-foreground: oklch(0.51 0.012 65);
+
+  --accent: oklch(0.955 0.008 75);
+  --accent-foreground: oklch(0.3 0.01 65);
+
+  --destructive: oklch(0.577 0.215 27);
+  --destructive-foreground: oklch(0.985 0.003 85);
+
+  --border: oklch(0.906 0.006 80);
+  --input: oklch(0.88 0.006 80);
+  --ring: oklch(0.58 0.14 40);
+
+  /* Brand: copper ember */
+  --brand: oklch(0.585 0.145 41);
+  --brand-foreground: oklch(0.985 0.01 80);
+  --brand-soft: oklch(0.955 0.026 65);
+  --brand-strong: oklch(0.51 0.13 40);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-strong: var(--brand-strong);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--foreground);
+  }
+}
+
+@layer utilities {
+  /* Subtle grid texture for the hero backdrop. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, oklch(0.245 0.008 65 / 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.245 0.008 65 / 0.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  .bg-fade-b {
+    mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  }
+}
