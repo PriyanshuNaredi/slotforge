@@ -1,128 +1,200 @@
+-- SlotForge baseline schema (reconstructed from the applied schema).
+-- The no-overlap exclusion constraint on availability_slots needs btree_gist.
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
-INSERT INTO availability_slots (id, provider_id, starts_at, ends_at, status)
-VALUES (
-    '$slotId',
-    '$providerId',
-    NOW() + INTERVAL '48 hours',
-    NOW() + INTERVAL '48 hours 30 minutes',
-    'open'
+--
+-- PostgreSQL database dump
+--
+
+
+-- Dumped from database version 16.15
+-- Dumped by pg_dump version 16.15
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: availability_slots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.availability_slots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider_id uuid NOT NULL,
+    starts_at timestamp with time zone NOT NULL,
+    ends_at timestamp with time zone NOT NULL,
+    status character varying(20) DEFAULT 'open'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT availability_slots_status_check CHECK (((status)::text = ANY ((ARRAY['open'::character varying, 'closed'::character varying])::text[]))),
+    CONSTRAINT availability_valid_time CHECK ((ends_at > starts_at))
 );
-"@
 
-    $dbSetupAttempted = $true
-    $null = Invoke-DatabaseSql -Sql $setupSql
-    Write-Host "PASS: Temporary test records created." -ForegroundColor Green
 
-    Write-Host "`n[3/6] Logging in as customer and creating booking..."
-    $customerLoginBody = @{
-        email = $customerEmail
-        password = $testPassword
-    } | ConvertTo-Json
+--
+-- Name: bookings; Type: TABLE; Schema: public; Owner: -
+--
 
-    $customerAuth = Invoke-RestMethod `
-        -Method Post -Uri "$BaseUrl/api/v1/auth/login" `
-        -ContentType "application/json" -Body $customerLoginBody
+CREATE TABLE public.bookings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    slot_id uuid NOT NULL,
+    customer_id uuid NOT NULL,
+    status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bookings_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'confirmed'::character varying, 'cancelled'::character varying, 'completed'::character varying, 'no_show'::character varying])::text[])))
+);
 
-    $customerToken = $customerAuth.access_token
-    if (-not $customerToken) { throw "Customer login returned no access token." }
 
-    $bookingBody = @{ slot_id = $slotId } | ConvertTo-Json
-    $booking = Invoke-RestMethod `
-        -Method Post -Uri "$BaseUrl/api/v1/bookings" `
-        -Headers @{ Authorization = "Bearer $customerToken" } `
-        -ContentType "application/json" -Body $bookingBody
+--
+-- Name: provider_profiles; Type: TABLE; Schema: public; Owner: -
+--
 
-    $bookingId = [string]$booking.id
-    if ([string]::IsNullOrWhiteSpace($bookingId)) {
-        throw "Booking API response did not contain an id."
-    }
-    Write-Host "PASS: Booking created: $bookingId" -ForegroundColor Green
+CREATE TABLE public.provider_profiles (
+    user_id uuid NOT NULL,
+    display_name character varying(150) NOT NULL,
+    bio text,
+    timezone character varying(100) DEFAULT 'UTC'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
-    Write-Host "`n[4/6] Logging in as provider and completing booking..."
-    $providerLoginBody = @{
-        email = $providerEmail
-        password = $testPassword
-    } | ConvertTo-Json
 
-    $providerAuth = Invoke-RestMethod `
-        -Method Post -Uri "$BaseUrl/api/v1/auth/login" `
-        -ContentType "application/json" -Body $providerLoginBody
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: -
+--
 
-    $providerToken = $providerAuth.access_token
-    if (-not $providerToken) { throw "Provider login returned no access token." }
-    if ($providerAuth.user.role -ne "provider") {
-        throw "Temporary account did not receive provider role."
-    }
+CREATE TABLE public.users (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    email character varying(255) NOT NULL,
+    password_hash text NOT NULL,
+    role character varying(20) DEFAULT 'customer'::character varying NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['customer'::character varying, 'provider'::character varying, 'admin'::character varying])::text[])))
+);
 
-    $statusBody = @{ status = "completed" } | ConvertTo-Json
-    $null = Invoke-RestMethod `
-        -Method Patch -Uri "$BaseUrl/api/v1/providers/bookings/$bookingId/status" `
-        -Headers @{ Authorization = "Bearer $providerToken" } `
-        -ContentType "application/json" -Body $statusBody
 
-    Write-Host "PASS: Provider changed booking status to completed." -ForegroundColor Green
+--
+-- Name: availability_slots availability_no_overlap; Type: CONSTRAINT; Schema: public; Owner: -
+--
 
-    Write-Host "`n[5/6] Verifying booking status and customer notification..."
-    $statusCount = Invoke-DatabaseSql -Sql @"
-SELECT COUNT(*) FROM bookings
-WHERE id = '$bookingId' AND status = 'completed' AND customer_id = '$customerId';
-"@
-    if ([int]$statusCount -ne 1) {
-        throw "Expected one completed booking; found $statusCount."
-    }
+ALTER TABLE ONLY public.availability_slots
+    ADD CONSTRAINT availability_no_overlap EXCLUDE USING gist (provider_id WITH =, tstzrange(starts_at, ends_at, '[)'::text) WITH &&) WHERE (((status)::text = 'open'::text));
 
-    $notificationCount = Invoke-DatabaseSql -Sql @"
-SELECT COUNT(*) FROM notifications
-WHERE booking_id = '$bookingId'
-  AND user_id = '$customerId'
-  AND type = 'booking_completed';
-"@
-    if ([int]$notificationCount -ne 1) {
-        throw "Expected one booking_completed customer notification; found $notificationCount."
-    }
 
-    Write-Host "PASS: Completed booking and customer notification verified." -ForegroundColor Green
-    Write-Host "`nALL TEST ASSERTIONS PASSED." -ForegroundColor Green
-}
-catch {
-    Write-Host "`nTEST FAILED: $($_.Exception.Message)" -ForegroundColor Red
-    throw
-}
-finally {
-    if ($dbSetupAttempted) {
-        Write-Host "`n[6/6] Cleaning up temporary test data..."
+--
+-- Name: availability_slots availability_slots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
 
-        $bookingFilter = ""
-        if ($bookingId) {
-            $bookingFilter = " OR booking_id = '$bookingId'"
-        }
+ALTER TABLE ONLY public.availability_slots
+    ADD CONSTRAINT availability_slots_pkey PRIMARY KEY (id);
 
-        $cleanupSql = @"
-DELETE FROM notifications
-WHERE user_id IN ('$customerId', '$providerId')$bookingFilter;
 
-DELETE FROM bookings
-WHERE slot_id = '$slotId' OR customer_id = '$customerId';
+--
+-- Name: bookings bookings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
 
-DELETE FROM availability_slots WHERE id = '$slotId';
-DELETE FROM provider_profiles WHERE user_id = '$providerId';
-DELETE FROM users WHERE id IN ('$customerId', '$providerId');
-"@
+ALTER TABLE ONLY public.bookings
+    ADD CONSTRAINT bookings_pkey PRIMARY KEY (id);
 
-        try {
-            $null = Invoke-DatabaseSql -Sql $cleanupSql
-            Write-Host "PASS: Temporary users and related records removed." -ForegroundColor Green
-        }
-        catch {
-            Write-Host "CLEANUP WARNING: $($_.Exception.Message)" -ForegroundColor Yellow
-            Write-Host "Temporary IDs: customer=$customerId provider=$providerId slot=$slotId booking=$bookingId" -ForegroundColor Yellow
-        }
-    }
 
-    if (Test-Path -LiteralPath $hashHelper) {
-        Remove-Item -LiteralPath $hashHelper -Force
-    }
+--
+-- Name: provider_profiles provider_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
 
-    $customerToken = $null
-    $providerToken = $null
-    $testPassword = $null
+ALTER TABLE ONLY public.provider_profiles
+    ADD CONSTRAINT provider_profiles_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: availability_provider_start_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX availability_provider_start_idx ON public.availability_slots USING btree (provider_id, starts_at);
+
+
+--
+-- Name: bookings_customer_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bookings_customer_created_idx ON public.bookings USING btree (customer_id, created_at DESC);
+
+
+--
+-- Name: bookings_one_active_per_slot; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX bookings_one_active_per_slot ON public.bookings USING btree (slot_id) WHERE ((status)::text = ANY ((ARRAY['pending'::character varying, 'confirmed'::character varying])::text[]));
+
+
+--
+-- Name: bookings_status_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bookings_status_created_idx ON public.bookings USING btree (status, created_at DESC);
+
+
+--
+-- Name: users_email_lower_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX users_email_lower_unique ON public.users USING btree (lower((email)::text));
+
+
+--
+-- Name: availability_slots availability_slots_provider_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.availability_slots
+    ADD CONSTRAINT availability_slots_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.provider_profiles(user_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: bookings bookings_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bookings
+    ADD CONSTRAINT bookings_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: bookings bookings_slot_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bookings
+    ADD CONSTRAINT bookings_slot_id_fkey FOREIGN KEY (slot_id) REFERENCES public.availability_slots(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: provider_profiles provider_profiles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.provider_profiles
+    ADD CONSTRAINT provider_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+
