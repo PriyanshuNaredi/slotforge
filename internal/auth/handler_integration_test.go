@@ -29,7 +29,12 @@ func newAuthHandlerRouter(
 	router := gin.New()
 	api := router.Group("/api/v1")
 
-	NewHandler(service).RegisterRoutes(api)
+	handler := NewHandler(service)
+	handler.RegisterRoutes(api)
+
+	protected := api.Group("")
+	protected.Use(AuthenticationMiddleware(service.tokens))
+	handler.RegisterProtectedRoutes(protected)
 
 	return router, service, pool
 }
@@ -85,6 +90,36 @@ func mustParseUserID(t *testing.T, raw string) uuid.UUID {
 	}
 
 	return userID
+}
+
+func postAuthJSON(
+	t *testing.T,
+	router *gin.Engine,
+	path string,
+	payload any,
+	accessToken string,
+) (*httptest.ResponseRecorder, authResponseBody) {
+	t.Helper()
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer "+accessToken)
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	var parsed authResponseBody
+
+	if err := json.Unmarshal(response.Body.Bytes(), &parsed); err != nil {
+		t.Fatalf("decode response %q: %v", response.Body.String(), err)
+	}
+
+	return response, parsed
 }
 
 func TestRegisterHandler(t *testing.T) {
@@ -346,5 +381,75 @@ func TestRefreshHandlerValidation(t *testing.T) {
 	})
 	if garbage.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for unknown refresh token, got %d", garbage.Code)
+	}
+}
+
+func TestLogoutHandler(t *testing.T) {
+	router, service, pool := newAuthHandlerRouter(t)
+
+	ctx := context.Background()
+
+	registered, err := service.Register(ctx, uniqueEmail(), "correct horse battery")
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	deleteTestUser(t, pool, registered.User.ID)
+
+	// Without an access token the endpoint must refuse.
+	unauthenticated, _ := postJSON(t, router, "/api/v1/auth/logout", map[string]string{
+		"refresh_token": registered.RefreshToken,
+	})
+	if unauthenticated.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without access token, got %d", unauthenticated.Code)
+	}
+
+	// The token must survive a refused logout.
+	if _, err := service.Refresh(ctx, registered.RefreshToken); err != nil {
+		t.Fatalf("token must still be usable after refused logout: %v", err)
+	}
+
+	response, body := postAuthJSON(
+		t,
+		router,
+		"/api/v1/auth/logout",
+		map[string]string{"refresh_token": registered.RefreshToken},
+		registered.AccessToken,
+	)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
+	}
+
+	var okBody struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &okBody); err != nil {
+		t.Fatalf("decode logout response: %v", err)
+	}
+	if !okBody.OK {
+		t.Errorf("expected ok=true, got %s", response.Body.String())
+	}
+	if body.Error != "" {
+		t.Errorf("unexpected error field: %q", body.Error)
+	}
+
+	// Reuse of the revoked token must be rejected.
+	revoked, _ := postJSON(t, router, "/api/v1/auth/refresh", map[string]string{
+		"refresh_token": registered.RefreshToken,
+	})
+	if revoked.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for refresh after logout, got %d", revoked.Code)
+	}
+
+	// Repeated logout stays a success.
+	repeat, _ := postAuthJSON(
+		t,
+		router,
+		"/api/v1/auth/logout",
+		map[string]string{"refresh_token": registered.RefreshToken},
+		registered.AccessToken,
+	)
+	if repeat.Code != http.StatusOK {
+		t.Fatalf("expected repeated logout to return 200, got %d", repeat.Code)
 	}
 }

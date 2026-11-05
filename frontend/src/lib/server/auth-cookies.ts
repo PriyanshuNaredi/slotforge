@@ -44,9 +44,9 @@ export async function setSessionCookies(auth: AuthResponse): Promise<void> {
 }
 
 /**
- * Clears the session cookies in the browser only. The backend has no
- * logout/revoke endpoint, so the refresh token remains valid server-side
- * until its natural expiry — a lost device is not fully logged out.
+ * Clears the session cookies in the browser. Call this after the logout
+ * route has attempted server-side revocation; even when the backend call
+ * fails, the cookies are still cleared here.
  */
 export async function clearSessionCookies(): Promise<void> {
   const store = await cookies();

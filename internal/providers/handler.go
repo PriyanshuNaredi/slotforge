@@ -3,6 +3,9 @@ package providers
 import (
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -17,6 +20,14 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service: service,
 	}
+}
+
+// RegisterPublicRoutes registers unauthenticated provider discovery
+// endpoints. No authentication or role checks apply here; responses carry
+// public profile fields only.
+func (h *Handler) RegisterPublicRoutes(router *gin.RouterGroup) {
+	router.GET("/providers", h.ListPublicProviders)
+	router.GET("/providers/:id", h.GetPublicProvider)
 }
 
 // RegisterRoutes registers provider profile endpoints.
@@ -52,6 +63,116 @@ func getProviderUserID(c *gin.Context) (uuid.UUID, error) {
 	}
 
 	return userID, nil
+}
+
+// GET /api/v1/providers — public provider directory.
+func (h *Handler) ListPublicProviders(c *gin.Context) {
+	input := ProviderListInput{
+		Limit:  20,
+		Offset: 0,
+	}
+
+	if value := strings.TrimSpace(c.Query("search")); value != "" {
+		input.Search = value
+	}
+
+	if value := c.Query("available_from"); value != "" {
+		from, err := time.Parse(time.RFC3339, value)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "available_from must be RFC3339",
+			})
+			return
+		}
+		input.AvailableFrom = &from
+	}
+
+	if value := c.Query("available_to"); value != "" {
+		to, err := time.Parse(time.RFC3339, value)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "available_to must be RFC3339",
+			})
+			return
+		}
+		input.AvailableTo = &to
+	}
+
+	if (input.AvailableFrom == nil) != (input.AvailableTo == nil) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "available_from and available_to must be provided together",
+		})
+		return
+	}
+
+	if input.AvailableFrom != nil &&
+		!input.AvailableTo.After(*input.AvailableFrom) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "available_to must be after available_from",
+		})
+		return
+	}
+
+	if value := c.Query("limit"); value != "" {
+		limit, err := strconv.Atoi(value)
+		if err != nil || limit < 1 || limit > 100 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "limit must be between 1 and 100",
+			})
+			return
+		}
+		input.Limit = limit
+	}
+
+	if value := c.Query("offset"); value != "" {
+		offset, err := strconv.Atoi(value)
+		if err != nil || offset < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "offset must be zero or greater",
+			})
+			return
+		}
+		input.Offset = offset
+	}
+
+	result, err := h.service.ListPublicProviders(c.Request.Context(), input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "could not list providers",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+// GET /api/v1/providers/:id — public provider detail. Missing profiles
+// and unknown IDs both return 404 without revealing account existence.
+func (h *Handler) GetPublicProvider(c *gin.Context) {
+	providerID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid provider ID",
+		})
+		return
+	}
+
+	provider, err := h.service.GetPublicProvider(c.Request.Context(), providerID)
+	if err != nil {
+		if errors.Is(err, ErrProfileNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "provider not found",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "could not retrieve provider",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, provider)
 }
 
 // POST /api/v1/providers/profile

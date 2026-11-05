@@ -15,18 +15,18 @@ export default function AuthLayout({
   return (
     <div className="grid min-h-svh lg:grid-cols-[1fr_1.1fr]">
       {/* Brand panel */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-primary p-10 text-primary-foreground lg:flex">
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-navy p-10 text-cream lg:flex">
         <div
           className="absolute inset-0 opacity-[0.12]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 15% 25%, oklch(0.72 0.15 45) 0%, transparent 40%), radial-gradient(circle at 85% 75%, oklch(0.72 0.15 45) 0%, transparent 40%)",
+              "radial-gradient(circle at 15% 25%, rgb(241 124 105 / 0.5) 0%, transparent 40%), radial-gradient(circle at 85% 75%, rgb(241 124 105 / 0.5) 0%, transparent 40%)",
           }}
           aria-hidden="true"
         />
         <div className="relative">
-          <Link href="/" className="inline-flex items-center gap-2 font-semibold">
-            <span className="flex size-7 items-center justify-center rounded-md bg-primary-foreground text-primary">
+          <Link href="/" className="inline-flex items-center gap-2 font-semibold text-cream">
+            <span className="flex size-7 items-center justify-center rounded-md bg-coral text-navy">
               <svg viewBox="0 0 16 16" fill="none" className="size-4" aria-hidden="true">
                 <rect x="1.5" y="2.5" width="13" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
                 <path d="M1.5 6h13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -42,14 +42,14 @@ export default function AuthLayout({
           </h2>
           <ul className="mt-6 space-y-3">
             {points.map((point) => (
-              <li key={point} className="flex items-start gap-2.5 text-sm text-primary-foreground/80">
+              <li key={point} className="flex items-start gap-2.5 text-sm text-cream/80">
                 <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
                 {point}
               </li>
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-primary-foreground/50">
+        <p className="relative text-xs text-cream/50">
           © {new Date().getFullYear()} SlotForge
         </p>
       </aside>

@@ -2,45 +2,25 @@
 
 import { useState } from "react";
 import {
-  CalendarRangeIcon,
-  CheckCircle2Icon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CircleXIcon,
   ClipboardListIcon,
   EyeIcon,
-  UserXIcon,
-  type LucideIcon,
-} from "lucide-react";
-import { toast } from "sonner";
+} from "lucide-react";import { toast } from "sonner";
 
 import { listProviderBookings, updateProviderBookingStatus } from "@/lib/api/endpoints";
 import type { ProviderBooking } from "@/lib/api/types";
 import { ApiError, toErrorMessage } from "@/lib/api/client";
-import { bookingStatusMeta, providerCanTransition } from "@/lib/booking-status";
+import { bookingStatusMeta } from "@/lib/booking-status";
 import { formatDuration, formatSlotRange } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, ErrorState } from "@/components/shared/states";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { BookingDetailDialog } from "@/components/provider/booking-detail-dialog";
+import { StatusMenu } from "@/components/provider/status-menu";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAsyncData } from "@/hooks/use-async-data";
@@ -83,20 +63,19 @@ export default function ProviderBookingsPage() {
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const [detail, setDetail] = useState<ProviderBooking | null>(null);
-  const [transitionTarget, setTransitionTarget] = useState<{
+  const [menuTarget, setMenuTarget] = useState<{
     booking: ProviderBooking;
     status: "confirmed" | "cancelled" | "completed" | "no_show";
   } | null>(null);
   const [transitioning, setTransitioning] = useState(false);
 
-  async function confirmTransition() {
-    if (!transitionTarget) return;
+  async function confirmMenuTransition() {
+    if (!menuTarget) return;
     setTransitioning(true);
     try {
-      await updateProviderBookingStatus(transitionTarget.booking.id, transitionTarget.status);
-      toast.success(`Booking marked as ${bookingStatusMeta(transitionTarget.status).label.toLowerCase()}`);
-      setTransitionTarget(null);
-      setDetail(null);
+      await updateProviderBookingStatus(menuTarget.booking.id, menuTarget.status);
+      toast.success(`Booking marked as ${bookingStatusMeta(menuTarget.status).label.toLowerCase()}`);
+      setMenuTarget(null);
       list.reload();
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -104,7 +83,7 @@ export default function ProviderBookingsPage() {
       } else {
         toast.error(toErrorMessage(err));
       }
-      setTransitionTarget(null);
+      setMenuTarget(null);
     } finally {
       setTransitioning(false);
     }
@@ -206,12 +185,10 @@ export default function ProviderBookingsPage() {
                     <EyeIcon aria-hidden="true" />
                     Details
                   </Button>
-                  {providerCanTransition(booking.status) ? (
-                    <StatusMenu
-                      booking={booking}
-                      onSelect={(status) => setTransitionTarget({ booking, status })}
-                    />
-                  ) : null}
+                  <StatusMenu
+                    booking={booking}
+                    onSelect={(status) => setMenuTarget({ booking, status })}
+                  />
                 </div>
               </li>
             ))}
@@ -242,182 +219,31 @@ export default function ProviderBookingsPage() {
         </>
       )}
 
-      {/* Detail dialog */}
-      <Dialog open={detail !== null} onOpenChange={(open) => !open && setDetail(null)}>
-        <DialogContent className="sm:max-w-lg">
-          {detail ? (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2.5">
-                  {detail.customer_email}
-                  <StatusBadge status={detail.status} />
-                </DialogTitle>
-                <DialogDescription>
-                  Booked {new Date(detail.created_at).toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <div className="rounded-lg border bg-background p-4">
-                  <p className="flex items-center gap-2 text-sm font-medium">
-                    <CalendarRangeIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-                    {formatSlotRange(detail.slot_starts_at, detail.slot_ends_at)}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {formatDuration(detail.slot_starts_at, detail.slot_ends_at)} · Slot #
-                    {detail.slot_id.slice(0, 8)}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium">Customer notes</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {detail.notes?.trim() ? detail.notes : "No notes added."}
-                  </p>
-                </div>
-
-                <Separator />
-
-                <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-                  <dt className="text-muted-foreground">Booking ID</dt>
-                  <dd className="font-mono text-xs leading-6">{detail.id}</dd>
-                  <dt className="text-muted-foreground">Customer ID</dt>
-                  <dd className="font-mono text-xs leading-6">{detail.customer_id}</dd>
-                  <dt className="text-muted-foreground">Last update</dt>
-                  <dd>
-                    {new Date(detail.updated_at).toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </dd>
-                </dl>
-              </div>
-
-              {providerCanTransition(detail.status) ? (
-                <div className="flex flex-wrap justify-end gap-2">
-                  {detail.status === "pending" ? (
-                    <Button
-                      size="sm"
-                      variant="brand"
-                      onClick={() => setTransitionTarget({ booking: detail, status: "confirmed" })}
-                    >
-                      <CheckCircle2Icon aria-hidden="true" />
-                      Confirm
-                    </Button>
-                  ) : null}
-                  {detail.status === "confirmed" ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setTransitionTarget({ booking: detail, status: "completed" })}
-                      >
-                        <CheckCircle2Icon aria-hidden="true" />
-                        Mark completed
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setTransitionTarget({ booking: detail, status: "no_show" })}
-                      >
-                        <UserXIcon aria-hidden="true" />
-                        Mark no-show
-                      </Button>
-                    </>
-                  ) : null}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-destructive hover:bg-destructive/5 hover:text-destructive"
-                    onClick={() => setTransitionTarget({ booking: detail, status: "cancelled" })}
-                  >
-                    <CircleXIcon aria-hidden="true" />
-                    Cancel booking
-                  </Button>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      <BookingDetailDialog
+        booking={detail}
+        onOpenChange={(open) => !open && setDetail(null)}
+        onUpdated={list.reload}
+      />
 
       <ConfirmDialog
-        open={transitionTarget !== null}
-        onOpenChange={(open) => !open && setTransitionTarget(null)}
-        icon={transitionTarget?.status === "cancelled" ? CircleXIcon : CheckCircle2Icon}
+        open={menuTarget !== null}
+        onOpenChange={(open) => !open && setMenuTarget(null)}
+        icon={ClipboardListIcon}
         title={
-          transitionTarget
-            ? `Mark as ${bookingStatusMeta(transitionTarget.status).label.toLowerCase()}?`
+          menuTarget
+            ? `Mark as ${bookingStatusMeta(menuTarget.status).label.toLowerCase()}?`
             : ""
         }
         description={
-          transitionTarget?.status === "cancelled"
+          menuTarget?.status === "cancelled"
             ? "The customer loses this appointment and the slot reopens for others."
             : "The customer's booking reflects the new status immediately."
         }
-        confirmLabel={transitionTarget ? bookingStatusMeta(transitionTarget.status).label : "Confirm"}
-        destructive={transitionTarget?.status === "cancelled"}
+        confirmLabel={menuTarget ? bookingStatusMeta(menuTarget.status).label : "Confirm"}
+        destructive={menuTarget?.status === "cancelled"}
         pending={transitioning}
-        onConfirm={() => void confirmTransition()}
+        onConfirm={() => void confirmMenuTransition()}
       />
     </div>
-  );
-}
-
-function StatusMenu({
-  booking,
-  onSelect,
-}: {
-  booking: ProviderBooking;
-  onSelect: (status: "confirmed" | "cancelled" | "completed" | "no_show") => void;
-}) {
-  // Mirrors the backend transition matrix (canTransitionBookingStatus):
-  // pending -> confirmed|cancelled, confirmed -> completed|no_show|cancelled.
-  const actions: {
-    status: "confirmed" | "cancelled" | "completed" | "no_show";
-    label: string;
-    icon: LucideIcon;
-    destructive?: boolean;
-  }[] =
-    booking.status === "pending"
-      ? [
-          { status: "confirmed", label: "Confirmed", icon: CheckCircle2Icon },
-          { status: "cancelled", label: "Cancelled", icon: CircleXIcon, destructive: true },
-        ]
-      : [
-          { status: "completed", label: "Completed", icon: CheckCircle2Icon },
-          { status: "no_show", label: "No-show", icon: UserXIcon },
-          { status: "cancelled", label: "Cancelled", icon: CircleXIcon, destructive: true },
-        ];
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
-          Update status
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Set status</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {actions.map((action) => (
-          <DropdownMenuItem
-            key={action.status}
-            variant={action.destructive ? "destructive" : "default"}
-            onClick={() => onSelect(action.status)}
-          >
-            <action.icon aria-hidden="true" />
-            {action.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

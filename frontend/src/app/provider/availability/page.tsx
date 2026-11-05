@@ -3,35 +3,24 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  AlertCircleIcon,
   ArrowRightIcon,
+  Loader2Icon,
   CalendarPlusIcon,
   CalendarX2Icon,
   LockIcon,
-  Loader2Icon,
   UserRoundIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { closeProviderSlot, createProviderSlot, listProviderSlots, getMyProviderProfile } from "@/lib/api/endpoints";
+import { closeProviderSlot, listProviderSlots, getMyProviderProfile } from "@/lib/api/endpoints";
 import type { ProviderProfile, Slot } from "@/lib/api/types";
 import { ApiError, toErrorMessage } from "@/lib/api/client";
-import { formatDuration, formatTime, isoToLocalInput, localInputToIso, timeZoneAbbr } from "@/lib/format";
-import { createSlotSchema } from "@/lib/validations";
+import { formatDuration, formatTime, isoToLocalInput, timeZoneAbbr } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState, ErrorState } from "@/components/shared/states";
 import { MonthCalendar, type DaySlots } from "@/components/provider/month-calendar";
+import { CreateSlotDialog } from "@/components/provider/create-slot-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsyncData } from "@/hooks/use-async-data";
 import { cn } from "@/lib/utils";
@@ -219,11 +208,11 @@ export default function AvailabilityPage() {
         </div>
       )}
 
-      {profile ? (
+      {profile && createOpen ? (
         <CreateSlotDialog
           open={createOpen}
           onOpenChange={setCreateOpen}
-          defaultDate={selectedDate}
+          initial={{ date: selectedDate, startTime: "09:00", endTime: "10:00" }}
           timezone={timezone}
           onCreated={() => {
             slots.reload();
@@ -308,137 +297,5 @@ function SlotRow({ slot, timezone, onChanged }: { slot: Slot; timezone: string; 
         ) : null}
       </div>
     </li>
-  );
-}
-
-function CreateSlotDialog({
-  open,
-  onOpenChange,
-  defaultDate,
-  timezone,
-  onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  defaultDate: string;
-  timezone: string;
-  onCreated: () => void;
-}) {
-  const [date, setDate] = useState(defaultDate);
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit() {
-    setError(null);
-
-    const parsed = createSlotSchema.safeParse({ date, startTime, endTime });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Invalid slot details");
-      return;
-    }
-
-    const startsAt = localInputToIso(`${date}T${startTime}`, timezone);
-    const endsAt = localInputToIso(`${date}T${endTime}`, timezone);
-
-    if (new Date(startsAt).getTime() <= Date.now()) {
-      setError("Start time must be in the future");
-      return;
-    }
-
-    setPending(true);
-    try {
-      await createProviderSlot({ starts_at: startsAt, ends_at: endsAt });
-      toast.success("Slot published", {
-        description: "Customers can book it from public search immediately.",
-      });
-      onCreated();
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setError("This slot overlaps an existing open slot. Adjust the times.");
-      } else if (err instanceof ApiError && err.status === 400) {
-        setError(err.message);
-      } else {
-        setError(toErrorMessage(err));
-      }
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!pending) {
-          setError(null);
-          onOpenChange(next);
-        }
-      }}
-    >
-      <DialogContent className="sm:max-w-md" showCloseButton={!pending}>
-        <DialogHeader>
-          <DialogTitle>New availability slot</DialogTitle>
-          <DialogDescription>
-            Published slots appear in public search immediately and can be
-            booked instantly. Times are in {timezone} ({timeZoneAbbr(timezone)}).
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label htmlFor="slot-date">Date</Label>
-            <Input
-              id="slot-date"
-              type="date"
-              value={date}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={(event) => setDate(event.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="slot-start">Start</Label>
-              <Input
-                id="slot-start"
-                type="time"
-                value={startTime}
-                onChange={(event) => setStartTime(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="slot-end">End</Label>
-              <Input
-                id="slot-end"
-                type="time"
-                value={endTime}
-                onChange={(event) => setEndTime(event.target.value)}
-              />
-            </div>
-          </div>
-
-          {error ? (
-            <div
-              role="alert"
-              className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
-            >
-              <AlertCircleIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {error}
-            </div>
-          ) : null}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
-          </Button>
-          <Button variant="brand" onClick={() => void submit()} disabled={pending}>
-            {pending ? <Loader2Icon className="animate-spin" aria-hidden="true" /> : null}
-            Publish slot
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

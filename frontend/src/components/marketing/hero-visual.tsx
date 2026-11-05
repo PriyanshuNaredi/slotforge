@@ -28,7 +28,7 @@ export function HeroVisual() {
             <p className="text-[13px] font-semibold">Dr. Amara Marsh</p>
             <p className="text-xs text-muted-foreground">Career consultation · 45 min</p>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+          <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success-foreground ring-1 ring-inset ring-success/30">
             <span className="size-1.5 rounded-full bg-emerald-500" />
             3 open slots
           </span>
@@ -72,8 +72,8 @@ export function HeroVisual() {
         transition={{ duration: 0.5, delay: 0.25, ease: "easeOut" }}
         className="absolute -bottom-6 -left-4 flex items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-xl shadow-black/[0.08] sm:-left-10"
       >
-        <span className="flex size-8 items-center justify-center rounded-full bg-emerald-500/15">
-          <CheckIcon className="size-4 text-emerald-600" />
+        <span className="flex size-8 items-center justify-center rounded-full bg-success-soft">
+          <CheckIcon className="size-4 text-success" />
         </span>
         <div>
           <p className="text-[13px] font-semibold leading-tight">Booking confirmed</p>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BellIcon,
+  CalendarDaysIcon,
   CalendarPlusIcon,
   ClipboardListIcon,
   LayoutDashboardIcon,
@@ -30,6 +31,7 @@ const nav = [
   { href: "/provider", label: "Overview", icon: LayoutDashboardIcon, exact: true },
   { href: "/provider/availability", label: "Availability", icon: CalendarPlusIcon },
   { href: "/provider/bookings", label: "Bookings", icon: ClipboardListIcon },
+  { href: "/provider/calendar", label: "Calendar", icon: CalendarDaysIcon },
   { href: "/provider/notifications", label: "Notifications", icon: BellIcon },
   { href: "/provider/profile", label: "Profile", icon: UserRoundIcon },
 ];
@@ -50,9 +52,9 @@ export default function ProviderLayout({
   return (
     <div className="flex min-h-svh flex-col lg:flex-row">
       {/* Sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-primary text-primary-foreground lg:flex">
-        <div className="flex h-14 items-center border-b border-primary-foreground/10 px-4">
-          <Logo href="/provider" className="text-primary-foreground [&_span.text-\[15px\]]:text-primary-foreground" />
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-cream/15 bg-navy text-cream lg:flex">
+        <div className="flex h-14 items-center border-b border-cream/15 px-4">
+          <Logo href="/provider" className="text-cream" />
         </div>
         <nav aria-label="Provider dashboard" className="flex flex-1 flex-col gap-0.5 p-3">
           {nav.map((item) => {
@@ -67,8 +69,8 @@ export default function ProviderLayout({
                 className={cn(
                   "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   active
-                    ? "bg-primary-foreground text-primary"
-                    : "text-primary-foreground/70 hover:bg-primary-foreground/10 hover:text-primary-foreground",
+                    ? "bg-coral text-navy"
+                    : "text-cream/70 hover:bg-white/10 hover:text-cream",
                 )}
               >
                 <item.icon className="size-4" aria-hidden="true" />
@@ -80,18 +82,18 @@ export default function ProviderLayout({
             );
           })}
         </nav>
-        <div className="border-t border-primary-foreground/10 p-3">
-          <p className="px-3 text-xs text-primary-foreground/60">Provider workspace</p>
+        <div className="border-t border-cream/15 p-3">
+          <p className="px-3 text-xs text-cream/60">Provider workspace</p>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-primary px-4 text-primary-foreground sm:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-navy px-4 text-cream sm:px-6">
           <div className="flex items-center gap-2 lg:hidden">
-            <Logo href="/provider" className="text-primary-foreground [&_span.text-\[15px\]]:text-primary-foreground" />
+            <Logo href="/provider" className="text-cream" />
           </div>
-          <div className="hidden text-sm text-primary-foreground/70 lg:block">
+          <div className="hidden text-sm text-cream/70 lg:block">
             {nav.find((item) =>
               item.exact
                 ? pathname === item.href
@@ -104,7 +106,7 @@ export default function ProviderLayout({
               className="rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 cursor-pointer"
               aria-label="Account menu"
             >
-              <Avatar className="border border-primary-foreground/20">
+              <Avatar className="border border-cream/25">
                 <AvatarFallback>{initials(user?.email ?? null)}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>

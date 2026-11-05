@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -653,4 +654,175 @@ func (r *Repository) UpdateBookingStatus(
 	}
 
 	return &booking, nil
+}
+
+// listPublicProvidersWhere is the shared filter for the public provider
+// directory. A provider is public when a profile row exists AND the
+// account is active — deactivated providers vanish from the directory,
+// the detail endpoint, and availability-filtered results alike. The
+// search term arrives pre-wrapped as %term% with wildcards escaped
+// (nil = no filter). The availability window uses overlap semantics: a
+// provider matches when at least one open, unbooked slot intersects
+// [from, to). All user input is bound as parameters; nothing is
+// concatenated.
+const publicProviderFilter = `
+		WHERE ($1::varchar IS NULL OR pp.display_name ILIKE $1)
+		  AND EXISTS (
+		      SELECT 1
+		      FROM users u
+		      WHERE u.id = pp.user_id
+		        AND u.is_active = TRUE
+		  )
+		  AND ($2::timestamptz IS NULL OR EXISTS (
+		      SELECT 1
+		      FROM availability_slots s
+		      WHERE s.provider_id = pp.user_id
+		        AND s.status = 'open'
+		        AND s.starts_at < $3::timestamptz
+		        AND s.ends_at > $2::timestamptz
+		        AND NOT EXISTS (
+		            SELECT 1
+		            FROM bookings b
+		            WHERE b.slot_id = s.id
+		              AND b.status IN ('pending', 'confirmed')
+		        )
+		  ))`
+
+func publicProviderSearchArg(search string) any {
+	if search == "" {
+		return nil
+	}
+
+	escaped := strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(search)
+	return "%" + escaped + "%"
+}
+
+// ListPublicProviders returns providers with a profile, newest profile
+// first with a deterministic user_id tie-breaker.
+func (r *Repository) ListPublicProviders(
+	ctx context.Context,
+	input ProviderListInput,
+) ([]PublicProvider, error) {
+	query := `
+		SELECT
+			pp.user_id,
+			pp.display_name,
+			pp.bio,
+			pp.timezone,
+			pp.created_at
+		FROM provider_profiles pp
+	` + publicProviderFilter + `
+		ORDER BY pp.created_at DESC, pp.user_id ASC
+		LIMIT $4
+		OFFSET $5
+	`
+
+	rows, err := r.db.Query(
+		ctx,
+		query,
+		publicProviderSearchArg(input.Search),
+		input.AvailableFrom,
+		input.AvailableTo,
+		input.Limit,
+		input.Offset,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list public providers: %w", err)
+	}
+	defer rows.Close()
+
+	providers := make([]PublicProvider, 0)
+
+	for rows.Next() {
+		var provider PublicProvider
+
+		err := rows.Scan(
+			&provider.ID,
+			&provider.DisplayName,
+			&provider.Bio,
+			&provider.Timezone,
+			&provider.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan public provider: %w", err)
+		}
+
+		providers = append(providers, provider)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate public providers: %w", err)
+	}
+
+	return providers, nil
+}
+
+// CountPublicProviders applies the same filters as ListPublicProviders
+// so the total is independent of the requested page.
+func (r *Repository) CountPublicProviders(
+	ctx context.Context,
+	input ProviderListInput,
+) (int64, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM provider_profiles pp
+	` + publicProviderFilter
+
+	var total int64
+
+	err := r.db.QueryRow(
+		ctx,
+		query,
+		publicProviderSearchArg(input.Search),
+		input.AvailableFrom,
+		input.AvailableTo,
+	).Scan(&total)
+
+	if err != nil {
+		return 0, fmt.Errorf("count public providers: %w", err)
+	}
+
+	return total, nil
+}
+
+// GetPublicProvider returns one provider's public profile. A missing row
+// or a deactivated account yields ErrProfileNotFound regardless of
+// whether the user account exists.
+func (r *Repository) GetPublicProvider(
+	ctx context.Context,
+	providerID uuid.UUID,
+) (*PublicProvider, error) {
+	var provider PublicProvider
+
+	err := r.db.QueryRow(ctx, `
+		SELECT
+			pp.user_id,
+			pp.display_name,
+			pp.bio,
+			pp.timezone,
+			pp.created_at
+		FROM provider_profiles pp
+		WHERE pp.user_id = $1
+		  AND EXISTS (
+		      SELECT 1
+		      FROM users u
+		      WHERE u.id = pp.user_id
+		        AND u.is_active = TRUE
+		  )
+	`, providerID).Scan(
+		&provider.ID,
+		&provider.DisplayName,
+		&provider.Bio,
+		&provider.Timezone,
+		&provider.CreatedAt,
+	)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrProfileNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get public provider: %w", err)
+	}
+
+	return &provider, nil
 }

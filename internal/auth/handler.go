@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -19,6 +20,11 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/auth/register", h.Register)
 	router.POST("/auth/login", h.Login)
 	router.POST("/auth/refresh", h.Refresh)
+}
+
+// RegisterProtectedRoutes adds endpoints that require authentication.
+func (h *Handler) RegisterProtectedRoutes(group *gin.RouterGroup) {
+	group.POST("/auth/logout", h.Logout)
 }
 
 func (h *Handler) Register(c *gin.Context) {
@@ -120,4 +126,50 @@ func (h *Handler) Refresh(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) Logout(c *gin.Context) {
+	rawID, ok := c.Get(ContextUserID)
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"error": "authentication required",
+		})
+		return
+	}
+
+	strID, ok := rawID.(string)
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid session",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(strID)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid session",
+		})
+		return
+	}
+
+	var input LogoutInput
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "refresh_token is required",
+		})
+		return
+	}
+
+	// Idempotent by contract: unknown/expired/already-revoked tokens are
+	// a successful no-op, so the client always ends up logged out.
+	if err := h.service.Logout(c.Request.Context(), userID, input.RefreshToken); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "could not log out",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

@@ -91,3 +91,12 @@ func (m *mockBookingService) CancelBooking(
 ) (*Booking, error) {
 	return nil, nil
 }
+
+func (m *mockBookingService) RescheduleBooking(
+	ctx context.Context,
+	bookingID uuid.UUID,
+	customerID uuid.UUID,
+	newSlotID uuid.UUID,
+) (*Booking, error) {
+	return nil, nil
+}

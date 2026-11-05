@@ -23,6 +23,8 @@ var emailSubjects = map[string]string{
 	"booking_cancelled_by_provider": "Your booking was cancelled",
 	"booking_completed":             "Your booking is complete",
 	"booking_no_show":               "Your booking was marked as a no-show",
+	"booking_rescheduled":           "Your appointment was rescheduled",
+	"customer_rescheduled":          "Booking reschedule confirmed",
 }
 
 const emailHTMLLayout = `<!DOCTYPE html>

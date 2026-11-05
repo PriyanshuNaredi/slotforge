@@ -83,6 +83,41 @@ func (s *Service) GetMyProfile(
 	return s.repo.GetByUserID(ctx, userID)
 }
 
+// ListPublicProviders returns the public provider directory with a total
+// count independent of the requested page.
+func (s *Service) ListPublicProviders(
+	ctx context.Context,
+	input ProviderListInput,
+) (*ProviderListResult, error) {
+	items, err := s.repo.ListPublicProviders(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	total, err := s.repo.CountPublicProviders(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProviderListResult{
+		Items:  items,
+		Total:  total,
+		Limit:  input.Limit,
+		Offset: input.Offset,
+	}, nil
+}
+
+func (s *Service) GetPublicProvider(
+	ctx context.Context,
+	providerID uuid.UUID,
+) (*PublicProvider, error) {
+	if providerID == uuid.Nil {
+		return nil, ErrProfileNotFound
+	}
+
+	return s.repo.GetPublicProvider(ctx, providerID)
+}
+
 func (s *Service) CreateSlot(
 	ctx context.Context,
 	providerID uuid.UUID,

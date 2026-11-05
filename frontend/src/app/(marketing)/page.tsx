@@ -190,20 +190,20 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="border-t border-border/70">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-          <div className="relative overflow-hidden rounded-2xl bg-primary px-6 py-14 text-center sm:px-12">
+          <div className="relative overflow-hidden rounded-2xl bg-navy px-6 py-14 text-center sm:px-12">
             <div
               className="absolute inset-0 opacity-[0.14]"
               style={{
                 backgroundImage:
-                  "radial-gradient(circle at 20% 20%, oklch(0.72 0.15 45) 0%, transparent 45%), radial-gradient(circle at 80% 80%, oklch(0.72 0.15 45) 0%, transparent 45%)",
+                  "radial-gradient(circle at 20% 20%, rgb(241 124 105 / 0.55) 0%, transparent 45%), radial-gradient(circle at 80% 80%, rgb(241 124 105 / 0.55) 0%, transparent 45%)",
               }}
               aria-hidden="true"
             />
             <div className="relative">
-              <h2 className="mx-auto max-w-xl text-3xl font-semibold tracking-tight text-primary-foreground text-balance">
+              <h2 className="mx-auto max-w-xl text-3xl font-semibold tracking-tight text-cream text-balance">
                 Stop asking “when works for you?”
               </h2>
-              <p className="mx-auto mt-3 max-w-md text-primary-foreground/70">
+              <p className="mx-auto mt-3 max-w-md text-cream/70">
                 Put your availability where customers can act on it. The
                 calendar does the rest.
               </p>
@@ -218,7 +218,7 @@ export default function LandingPage() {
                   asChild
                   size="lg"
                   variant="outline"
-                  className="border-primary-foreground/20 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                  className="border-cream/25 bg-transparent text-cream hover:bg-cream/10 hover:text-cream"
                 >
                   <Link href="/login">Sign in</Link>
                 </Button>

@@ -1,8 +1,112 @@
 @import "tailwindcss";
 
-/* Minimal replacement for tw-animate-css (Turbopack can't resolve its
-   style-only export). Covers the fade/zoom transitions used by dialogs,
-   selects and dropdowns. */
+/*
+ * SlotForge design system — Phase 13B palette.
+ *
+ * Navy #172B4D (sidebars, navigation, ink) · cream #F6F0E5 (page background)
+ * coral #F17C69 (primary actions, selected dates) · white (cards)
+ * blue-grey #DCE5E9 (muted surfaces, borders) · green #344B43 (success)
+ *
+ * Accessibility notes: coral buttons use navy text (5.3:1); coral text on
+ * light surfaces uses the darkened --brand-strong (4.9:1); navy text on
+ * cream is ~10:1.
+ */
+
+:root {
+  --radius: 0.625rem;
+
+  --navy: #172b4d;
+  --navy-soft: #24406b;
+  --cream: #f6f0e5;
+  --coral: #f17c69;
+  --coral-strong: #a34e3f;
+  --coral-soft: #fbe3de;
+  --blue-grey: #dce5e9;
+  --success: #344b43;
+
+  --background: var(--cream);
+  --foreground: var(--navy);
+
+  --card: #ffffff;
+  --card-foreground: var(--navy);
+
+  --popover: #ffffff;
+  --popover-foreground: var(--navy);
+
+  --primary: var(--coral);
+  --primary-foreground: var(--navy);
+
+  --secondary: var(--blue-grey);
+  --secondary-foreground: var(--navy);
+
+  --muted: #e9eef1;
+  --muted-foreground: #44597e;
+
+  --accent: #eef1f4;
+  --accent-foreground: var(--navy);
+
+  --destructive: #b3362b;
+  --destructive-foreground: #ffffff;
+
+  --border: var(--blue-grey);
+  --input: #c9d5db;
+  --ring: var(--coral);
+
+  /* Brand aliases kept for existing components. */
+  --brand: var(--coral);
+  --brand-foreground: var(--navy);
+  --brand-soft: var(--coral-soft);
+  --brand-strong: var(--coral-strong);
+
+  --success-soft: #e2eae6;
+  --success-foreground: var(--success);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-strong: var(--brand-strong);
+  --color-navy: var(--navy);
+  --color-navy-soft: var(--navy-soft);
+  --color-cream: var(--cream);
+  --color-coral: var(--coral);
+  --color-coral-strong: var(--coral-strong);
+  --color-coral-soft: var(--coral-soft);
+  --color-blue-grey: var(--blue-grey);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
 @keyframes enter {
   from {
     opacity: var(--tw-enter-opacity, 1);
@@ -41,87 +145,6 @@
   --tw-exit-scale: 0.95;
 }
 
-/*
- * SlotForge design system.
- *
- * Identity: warm stone neutrals ("ink & paper") with a single copper/ember
- * brand accent used deliberately — CTAs, active states, key data. Black
- * primary buttons, quiet borders, generous whitespace. No glass, no noise.
- */
-
-:root {
-  --radius: 0.625rem;
-
-  --background: oklch(0.984 0.003 85);
-  --foreground: oklch(0.216 0.008 65);
-
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.216 0.008 65);
-
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.216 0.008 65);
-
-  --primary: oklch(0.245 0.008 65);
-  --primary-foreground: oklch(0.985 0.003 85);
-
-  --secondary: oklch(0.952 0.004 85);
-  --secondary-foreground: oklch(0.3 0.01 65);
-
-  --muted: oklch(0.952 0.004 85);
-  --muted-foreground: oklch(0.51 0.012 65);
-
-  --accent: oklch(0.955 0.008 75);
-  --accent-foreground: oklch(0.3 0.01 65);
-
-  --destructive: oklch(0.577 0.215 27);
-  --destructive-foreground: oklch(0.985 0.003 85);
-
-  --border: oklch(0.906 0.006 80);
-  --input: oklch(0.88 0.006 80);
-  --ring: oklch(0.58 0.14 40);
-
-  /* Brand: copper ember */
-  --brand: oklch(0.585 0.145 41);
-  --brand-foreground: oklch(0.985 0.01 80);
-  --brand-soft: oklch(0.955 0.026 65);
-  --brand-strong: oklch(0.51 0.13 40);
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-brand: var(--brand);
-  --color-brand-foreground: var(--brand-foreground);
-  --color-brand-soft: var(--brand-soft);
-  --color-brand-strong: var(--brand-strong);
-
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-}
-
 @layer base {
   * {
     border-color: var(--border);
@@ -154,8 +177,8 @@
   }
 
   ::selection {
-    background: var(--brand-soft);
-    color: var(--foreground);
+    background: var(--coral-soft);
+    color: var(--navy);
   }
 }
 
@@ -163,12 +186,57 @@
   /* Subtle grid texture for the hero backdrop. */
   .bg-grid {
     background-image:
-      linear-gradient(to right, oklch(0.245 0.008 65 / 0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, oklch(0.245 0.008 65 / 0.045) 1px, transparent 1px);
+      linear-gradient(to right, rgb(23 43 77 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(23 43 77 / 0.05) 1px, transparent 1px);
     background-size: 44px 44px;
   }
 
   .bg-fade-b {
     mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * FullCalendar v7 skin — classic theme restyled via its --fc-classic-* vars.
+ * Event colors come per-event from lib/calendar-events (inline styles).
+ * ------------------------------------------------------------------------ */
+@layer components {
+  .fc-wrapper {
+    --fc-classic-background: #ffffff;
+    --fc-classic-foreground: var(--navy);
+    --fc-classic-border: var(--blue-grey);
+    --fc-classic-strong-border: #b9c8d0;
+    --fc-classic-faint: rgb(23 43 77 / 0.04);
+    --fc-classic-faint-foreground: #64778f;
+    --fc-classic-muted: #e9eef1;
+    --fc-classic-muted-foreground: #44597e;
+    --fc-classic-strong: rgb(23 43 77 / 0.12);
+    --fc-classic-button: #ffffff;
+    --fc-classic-button-border: var(--blue-grey);
+    --fc-classic-button-foreground: var(--navy);
+    --fc-classic-button-outline: rgb(241 124 105 / 0.5);
+    --fc-classic-button-strong: var(--coral);
+    --fc-classic-button-strong-border: var(--coral);
+    --fc-classic-primary: var(--coral-strong);
+    --fc-classic-primary-foreground: #ffffff;
+    --fc-classic-today: rgb(241 124 105 / 0.09);
+    --fc-classic-highlight: rgb(241 124 105 / 0.18);
+    --fc-classic-now: var(--coral-strong);
+    font-size: 0.875rem;
+  }
+
+  /* Active view button: coral with navy text for accessible contrast. */
+  .fc-wrapper [aria-pressed="true"] {
+    color: var(--navy) !important;
+  }
+
+  .fc-wrapper button:focus-visible {
+    outline: 2px solid var(--coral);
+    outline-offset: 1px;
+  }
+
+  .fc-wrapper .fc-scrollgrid {
+    border-radius: 0.75rem;
+    overflow: hidden;
   }
 }

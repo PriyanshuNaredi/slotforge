@@ -122,6 +122,7 @@ func main() {
 
 	authHandler.RegisterRoutes(api)
 	bookingHandler.RegisterPublicRoutes(api)
+	providerHandler.RegisterPublicRoutes(api)
 
 	protected := api.Group("")
 	protected.Use(auth.AuthenticationMiddleware(tokenManager))
@@ -130,6 +131,7 @@ func main() {
 	providerRoutes.Use(auth.RequireRoles("provider"))
 	providerHandler.RegisterRoutes(providerRoutes)
 
+	authHandler.RegisterProtectedRoutes(protected)
 	bookingHandler.RegisterRoutes(protected)
 	notificationHandler.RegisterRoutes(protected)
 

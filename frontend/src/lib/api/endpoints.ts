@@ -19,7 +19,10 @@ import type {
   ProviderBookingListParams,
   ProviderBookingListResult,
   ProviderBookingStatus,
+  ProviderListParams,
+  ProviderListResult,
   ProviderProfile,
+  PublicProvider,
   Slot,
   SlotSearchParams,
   SlotSearchResult,
@@ -55,6 +58,26 @@ export function getAvailableSlot(slotId: string): Promise<AvailableSlot> {
 }
 
 // ---------------------------------------------------------------------------
+// Public provider discovery
+// ---------------------------------------------------------------------------
+
+export function searchProviders(params: ProviderListParams): Promise<ProviderListResult> {
+  return apiGet<ProviderListResult>(
+    `/providers${toQuery({
+      search: params.search,
+      available_from: params.available_from,
+      available_to: params.available_to,
+      limit: params.limit,
+      offset: params.offset,
+    })}`,
+  );
+}
+
+export function getPublicProvider(providerId: string): Promise<PublicProvider> {
+  return apiGet<PublicProvider>(`/providers/${providerId}`);
+}
+
+// ---------------------------------------------------------------------------
 // Customer bookings
 // ---------------------------------------------------------------------------
 
@@ -78,6 +101,11 @@ export function getBooking(bookingId: string): Promise<Booking> {
 
 export function cancelBooking(bookingId: string): Promise<Booking> {
   return apiPatch<Booking>(`/bookings/${bookingId}/cancel`);
+}
+
+/** Move a confirmed booking to a new slot with the same provider. */
+export function rescheduleBooking(bookingId: string, slotId: string): Promise<Booking> {
+  return apiPatch<Booking>(`/bookings/${bookingId}/reschedule`, { slot_id: slotId });
 }
 
 // ---------------------------------------------------------------------------
@@ -156,4 +184,11 @@ export function markAllNotificationsRead(): Promise<MarkAllReadResult> {
 }
 
 // Re-export common types for convenience of UI modules.
-export type { Booking, AvailableSlot, Slot, ProviderProfile, ProviderBooking };
+export type {
+  Booking,
+  AvailableSlot,
+  Slot,
+  ProviderProfile,
+  ProviderBooking,
+  PublicProvider,
+};

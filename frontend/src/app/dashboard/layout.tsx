@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   CalendarSearchIcon,
   CalendarClockIcon,
+  CalendarDaysIcon,
   BellIcon,
   LayoutDashboardIcon,
   LogOutIcon,
@@ -29,6 +30,7 @@ const nav = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboardIcon, exact: true },
   { href: "/dashboard/discover", label: "Discover", icon: CalendarSearchIcon },
   { href: "/dashboard/bookings", label: "My bookings", icon: CalendarClockIcon },
+  { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDaysIcon },
   { href: "/dashboard/notifications", label: "Notifications", icon: BellIcon },
 ];
 
@@ -48,7 +50,7 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-svh flex-col lg:flex-row">
       {/* Sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-card/50 lg:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-cream/15 bg-navy text-cream lg:flex">
         <div className="flex h-14 items-center border-b px-4">
           <Logo href="/dashboard" />
         </div>
@@ -65,8 +67,8 @@ export default function DashboardLayout({
                 className={cn(
                   "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    ? "bg-coral text-navy"
+                    : "text-cream/70 hover:bg-white/10 hover:text-cream",
                 )}
               >
                 <item.icon className="size-4" aria-hidden="true" />
@@ -78,8 +80,8 @@ export default function DashboardLayout({
             );
           })}
         </nav>
-        <div className="border-t p-3">
-          <p className="px-3 text-xs text-muted-foreground">Customer account</p>
+        <div className="border-t border-cream/15 p-3">
+          <p className="px-3 text-xs text-cream/60">Customer account</p>
         </div>
       </aside>
 

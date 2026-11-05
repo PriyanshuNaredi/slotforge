@@ -48,3 +48,29 @@ type ProviderBookingListResult struct {
 	Offset   int               `json:"offset"`
 	Total    int64             `json:"total"`
 }
+
+// PublicProvider is the only shape the unauthenticated discovery endpoints
+// may return. It intentionally excludes every users-table field: email,
+// password hash, role, and account status never cross the wire here.
+type PublicProvider struct {
+	ID          uuid.UUID `json:"id"`
+	DisplayName string    `json:"display_name"`
+	Bio         *string   `json:"bio,omitempty"`
+	Timezone    string    `json:"timezone"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type ProviderListInput struct {
+	Search        string
+	AvailableFrom *time.Time
+	AvailableTo   *time.Time
+	Limit         int
+	Offset        int
+}
+
+type ProviderListResult struct {
+	Items  []PublicProvider `json:"items"`
+	Total  int64            `json:"total"`
+	Limit  int              `json:"limit"`
+	Offset int              `json:"offset"`
+}

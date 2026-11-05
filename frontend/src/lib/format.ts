@@ -3,6 +3,35 @@
  * Slot times are anchored to the provider's timezone (slots.timezone).
  */
 
+/** The viewer's IANA timezone, falling back to UTC when unavailable. */
+export function viewerTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
+/**
+ * Convert a calendar drag-selection (ISO start/end) into slot-dialog
+ * prefill values expressed in the provider's timezone. Multi-day
+ * selections clamp the end time so the dialog starts sane.
+ */
+export function selectionToSlotPrefill(
+  startStr: string,
+  endStr: string,
+  timezone: string,
+): { date: string; startTime: string; endTime: string } {
+  const start = isoToLocalInput(startStr, timezone);
+  const end = isoToLocalInput(endStr, timezone);
+  const sameDay = start.slice(0, 10) === end.slice(0, 10);
+  return {
+    date: start.slice(0, 10),
+    startTime: start.slice(11, 16),
+    endTime: sameDay ? end.slice(11, 16) : "10:00",
+  };
+}
+
 const DATE_OPTS = { weekday: "short", month: "short", day: "numeric" } as const;
 const FULL_DATE_OPTS = {
   weekday: "long",

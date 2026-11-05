@@ -30,3 +30,7 @@ type CreateBookingInput struct {
 	SlotID uuid.UUID `json:"slot_id" binding:"required"`
 	Notes  *string   `json:"notes,omitempty"`
 }
+
+type RescheduleInput struct {
+	SlotID uuid.UUID `json:"slot_id" binding:"required"`
+}

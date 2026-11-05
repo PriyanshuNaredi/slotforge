@@ -227,6 +227,38 @@ func (s *Service) CancelBooking(
 	return booking, nil
 }
 
+// RescheduleBooking moves a confirmed booking to a new slot. Both the old
+// and the new slot's availability change, so the slot-search cache must be
+// invalidated.
+func (s *Service) RescheduleBooking(
+	ctx context.Context,
+	bookingID uuid.UUID,
+	customerID uuid.UUID,
+	newSlotID uuid.UUID,
+) (*Booking, error) {
+	if bookingID == uuid.Nil || customerID == uuid.Nil {
+		return nil, errors.New("invalid booking or customer ID")
+	}
+
+	if newSlotID == uuid.Nil {
+		return nil, errors.New("slot_id is required")
+	}
+
+	booking, err := s.repo.RescheduleByCustomer(
+		ctx,
+		bookingID,
+		customerID,
+		newSlotID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	s.invalidateSlotSearchCache()
+
+	return booking, nil
+}
+
 func (s *Service) invalidateSlotSearchCache() {
 	if s.redis == nil {
 		return

@@ -506,3 +506,197 @@ func TestGetUserByEmailNotFound(t *testing.T) {
 		t.Fatalf("expected pgx.ErrNoRows, got %v", err)
 	}
 }
+
+func registerForLogout(t *testing.T, service *Service) *AuthResponse {
+	t.Helper()
+
+	registered, err := service.Register(
+		context.Background(),
+		uniqueEmail(),
+		"correct horse battery",
+	)
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	return registered
+}
+
+func TestLogoutRevokesTokenAndBlocksReuse(t *testing.T) {
+	service, pool := newTestService(t)
+
+	registered := registerForLogout(t, service)
+	deleteTestUser(t, pool, registered.User.ID)
+
+	ctx := context.Background()
+
+	if err := service.Logout(ctx, registered.User.ID, registered.RefreshToken); err != nil {
+		t.Fatalf("logout: %v", err)
+	}
+
+	// The token row must be marked revoked in the database.
+	var liveCount int
+
+	err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM refresh_tokens
+		WHERE token_hash = $1 AND revoked_at IS NULL
+	`, HashRefreshToken(registered.RefreshToken)).Scan(&liveCount)
+	if err != nil {
+		t.Fatalf("check revocation: %v", err)
+	}
+
+	if liveCount != 0 {
+		t.Error("expected the logged-out token to be revoked in the database")
+	}
+
+	// Reuse after logout must fail.
+	if _, err := service.Refresh(
+		ctx,
+		registered.RefreshToken,
+	); !errors.Is(err, ErrInvalidRefresh) {
+		t.Fatalf("expected ErrInvalidRefresh after logout, got %v", err)
+	}
+}
+
+func TestLogoutIsIdempotent(t *testing.T) {
+	service, pool := newTestService(t)
+
+	registered := registerForLogout(t, service)
+	deleteTestUser(t, pool, registered.User.ID)
+
+	ctx := context.Background()
+
+	if err := service.Logout(ctx, registered.User.ID, registered.RefreshToken); err != nil {
+		t.Fatalf("first logout: %v", err)
+	}
+
+	if err := service.Logout(ctx, registered.User.ID, registered.RefreshToken); err != nil {
+		t.Fatalf("repeated logout must be a no-op success, got %v", err)
+	}
+
+	unknownRaw, _, err := GenerateRefreshToken()
+	if err != nil {
+		t.Fatalf("generate refresh token: %v", err)
+	}
+
+	if err := service.Logout(ctx, registered.User.ID, unknownRaw); err != nil {
+		t.Fatalf("logout with unknown token must be a no-op success, got %v", err)
+	}
+
+	if err := service.Logout(ctx, registered.User.ID, ""); err != nil {
+		t.Fatalf("logout with empty token must be a no-op success, got %v", err)
+	}
+}
+
+func TestLogoutDoesNotRevokeOtherUsersTokens(t *testing.T) {
+	service, pool := newTestService(t)
+
+	attacker := registerForLogout(t, service)
+	deleteTestUser(t, pool, attacker.User.ID)
+
+	victim := registerForLogout(t, service)
+	deleteTestUser(t, pool, victim.User.ID)
+
+	// The attacker logs out using the victim's refresh token.
+	if err := service.Logout(
+		context.Background(),
+		attacker.User.ID,
+		victim.RefreshToken,
+	); err != nil {
+		t.Fatalf("logout: %v", err)
+	}
+
+	// The victim's token must still be live and usable.
+	var liveCount int
+
+	err := pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM refresh_tokens
+		WHERE token_hash = $1 AND revoked_at IS NULL
+	`, HashRefreshToken(victim.RefreshToken)).Scan(&liveCount)
+	if err != nil {
+		t.Fatalf("check revocation: %v", err)
+	}
+
+	if liveCount != 1 {
+		t.Fatal("expected the victim's token to remain live after another user's logout")
+	}
+
+	if _, err := service.Refresh(
+		context.Background(),
+		victim.RefreshToken,
+	); err != nil {
+		t.Fatalf("victim's token must still refresh, got %v", err)
+	}
+}
+
+func TestLogoutToleratesExpiredToken(t *testing.T) {
+	service, pool := newTestService(t)
+
+	registered := registerForLogout(t, service)
+	deleteTestUser(t, pool, registered.User.ID)
+
+	_, err := pool.Exec(context.Background(), `
+		UPDATE refresh_tokens
+		SET expires_at = NOW() - INTERVAL '1 hour'
+		WHERE user_id = $1
+	`, registered.User.ID)
+	if err != nil {
+		t.Fatalf("expire refresh token: %v", err)
+	}
+
+	// Logging out an already-expired token must succeed without error.
+	if err := service.Logout(
+		context.Background(),
+		registered.User.ID,
+		registered.RefreshToken,
+	); err != nil {
+		t.Fatalf("logout of expired token: %v", err)
+	}
+
+	if _, err := service.Refresh(
+		context.Background(),
+		registered.RefreshToken,
+	); !errors.Is(err, ErrInvalidRefresh) {
+		t.Fatalf("expected ErrInvalidRefresh for expired token, got %v", err)
+	}
+}
+
+func TestRevokeRefreshTokenRepoSemantics(t *testing.T) {
+	service, pool := newTestService(t)
+
+	owner := registerForLogout(t, service)
+	deleteTestUser(t, pool, owner.User.ID)
+
+	other := registerForLogout(t, service)
+	deleteTestUser(t, pool, other.User.ID)
+
+	repo := NewRepository(pool)
+	ctx := context.Background()
+	ownerHash := HashRefreshToken(owner.RefreshToken)
+
+	// A different user cannot revoke the token.
+	revoked, err := repo.RevokeRefreshToken(ctx, other.User.ID, ownerHash)
+	if err != nil {
+		t.Fatalf("foreign revoke: %v", err)
+	}
+	if revoked {
+		t.Error("expected foreign revoke to be a no-op (false)")
+	}
+
+	// The owner revokes it exactly once.
+	revoked, err = repo.RevokeRefreshToken(ctx, owner.User.ID, ownerHash)
+	if err != nil {
+		t.Fatalf("owner revoke: %v", err)
+	}
+	if !revoked {
+		t.Error("expected owner revoke to return true")
+	}
+
+	revoked, err = repo.RevokeRefreshToken(ctx, owner.User.ID, ownerHash)
+	if err != nil {
+		t.Fatalf("repeat revoke: %v", err)
+	}
+	if revoked {
+		t.Error("expected repeat revoke to return false")
+	}
+}

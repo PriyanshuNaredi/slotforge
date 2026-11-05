@@ -19,6 +19,7 @@ import { formatDuration, formatFullDate, formatRelative, formatTime, timeZoneAbb
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ErrorState } from "@/components/shared/states";
+import { RescheduleDialog } from "@/components/customer/reschedule-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -37,6 +38,7 @@ export default function BookingDetailPage() {
 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
 
   async function confirmCancel() {
     if (!booking.data) return;
@@ -182,7 +184,14 @@ export default function BookingDetailPage() {
       </Card>
 
       {customerCanCancel(data.status) ? (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setRescheduleOpen(true)}
+          >
+            <CalendarClockIcon aria-hidden="true" />
+            Reschedule
+          </Button>
           <Button
             variant="outline"
             className="text-destructive hover:bg-destructive/5 hover:text-destructive"
@@ -192,6 +201,19 @@ export default function BookingDetailPage() {
             Cancel booking
           </Button>
         </div>
+      ) : null}
+
+      {slotData ? (
+        <RescheduleDialog
+          open={rescheduleOpen}
+          onOpenChange={setRescheduleOpen}
+          booking={data}
+          currentSlot={slotData}
+          onRescheduled={() => {
+            booking.reload();
+            slot.reload();
+          }}
+        />
       ) : null}
 
       <ConfirmDialog

@@ -164,6 +164,28 @@ func (s *Service) issueTokens(
 	}, nil
 }
 
+// Logout revokes the caller's own refresh token. Unknown, expired,
+// already-revoked, and other users' tokens are all a successful no-op:
+// logging out must be idempotent and must not leak token existence.
+func (s *Service) Logout(
+	ctx context.Context,
+	userID uuid.UUID,
+	rawRefreshToken string,
+) error {
+	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
+	if rawRefreshToken == "" || len(rawRefreshToken) > 256 {
+		return nil
+	}
+
+	_, err := s.repo.RevokeRefreshToken(
+		ctx,
+		userID,
+		HashRefreshToken(rawRefreshToken),
+	)
+
+	return err
+}
+
 // Useful for account-management operations in a later phase.
 func (s *Service) ValidateUserID(id string) (uuid.UUID, error) {
 	return uuid.Parse(id)

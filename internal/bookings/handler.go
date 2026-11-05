@@ -23,6 +23,12 @@ type BookingService interface {
 		bookingID uuid.UUID,
 		customerID uuid.UUID,
 	) (*Booking, error)
+	RescheduleBooking(
+		ctx context.Context,
+		bookingID uuid.UUID,
+		customerID uuid.UUID,
+		newSlotID uuid.UUID,
+	) (*Booking, error)
 }
 
 type Handler struct {
@@ -41,6 +47,11 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 		"/bookings/:id/cancel",
 		auth.RequireRoles("customer"),
 		h.CancelBooking,
+	)
+	router.PATCH(
+		"/bookings/:id/reschedule",
+		auth.RequireRoles("customer"),
+		h.RescheduleBooking,
 	)
 }
 

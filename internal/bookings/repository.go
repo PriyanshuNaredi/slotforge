@@ -19,6 +19,9 @@ var (
 	ErrSlotBooked            = errors.New("availability slot is already booked")
 	ErrBookingNotFound       = errors.New("booking not found")
 	ErrBookingNotCancellable = errors.New("booking cannot be cancelled")
+	// Reschedule-specific rejections.
+	ErrBookingNotReschedulable = errors.New("booking cannot be rescheduled")
+	ErrSlotCrossProvider       = errors.New("target slot belongs to a different provider")
 )
 
 type Repository struct {
@@ -595,6 +598,194 @@ func (r *Repository) CancelByCustomer(
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit cancellation transaction: %w", err)
+	}
+
+	return &booking, nil
+}
+
+// RescheduleByCustomer moves a confirmed booking to a new slot of the same
+// provider in one transaction. Lock order matches booking creation and
+// cancellation — target slot first, then the booking row — so competing
+// reschedules into the same slot serialize instead of deadlocking. The old
+// slot needs no lock: slot availability is derived from active bookings, so
+// the UPDATE alone frees it, and the partial unique index
+// bookings_one_active_per_slot backstops any race the check below misses.
+// Rescheduling onto the booking's current slot is an idempotent no-op.
+func (r *Repository) RescheduleByCustomer(
+	ctx context.Context,
+	bookingID uuid.UUID,
+	customerID uuid.UUID,
+	newSlotID uuid.UUID,
+) (*Booking, error) {
+	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("begin reschedule transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	// Lock the target slot first, mirroring the booking-creation lock order.
+	var (
+		newSlotProvider uuid.UUID
+		newSlotStatus   string
+	)
+
+	err = tx.QueryRow(ctx, `
+		SELECT provider_id, status
+		FROM availability_slots
+		WHERE id = $1
+		FOR UPDATE
+	`, newSlotID).Scan(&newSlotProvider, &newSlotStatus)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrSlotNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock target slot: %w", err)
+	}
+
+	// Lock the booking under the slot lock and validate ownership in the
+	// same query: another customer's booking looks like a missing one.
+	var booking Booking
+
+	err = tx.QueryRow(ctx, `
+		SELECT
+			id,
+			slot_id,
+			customer_id,
+			status,
+			notes,
+			created_at,
+			updated_at
+		FROM bookings
+		WHERE id = $1
+		  AND customer_id = $2
+		FOR UPDATE
+	`, bookingID, customerID).Scan(
+		&booking.ID,
+		&booking.SlotID,
+		&booking.CustomerID,
+		&booking.Status,
+		&booking.Notes,
+		&booking.CreatedAt,
+		&booking.UpdatedAt,
+	)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrBookingNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock booking: %w", err)
+	}
+
+	// Only confirmed appointments can move; completed, cancelled, and
+	// no-show bookings are history.
+	if booking.Status != StatusConfirmed {
+		return nil, ErrBookingNotReschedulable
+	}
+
+	// Rescheduling onto the current slot changes nothing: succeed without
+	// touching the row or creating notifications (idempotent retries).
+	if booking.SlotID == newSlotID {
+		return &booking, nil
+	}
+
+	if newSlotStatus != "open" {
+		return nil, ErrSlotClosed
+	}
+
+	// The new slot must belong to the same provider as the existing one.
+	var oldSlotProvider uuid.UUID
+
+	err = tx.QueryRow(ctx, `
+		SELECT provider_id
+		FROM availability_slots
+		WHERE id = $1
+	`, booking.SlotID).Scan(&oldSlotProvider)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrSlotNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load current slot: %w", err)
+	}
+
+	if oldSlotProvider != newSlotProvider {
+		return nil, ErrSlotCrossProvider
+	}
+
+	// The target slot must not carry another active booking.
+	var alreadyBooked bool
+
+	err = tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM bookings
+			WHERE slot_id = $1
+			  AND status IN ('pending', 'confirmed')
+			  AND id <> $2
+		)
+	`, newSlotID, booking.ID).Scan(&alreadyBooked)
+
+	if err != nil {
+		return nil, fmt.Errorf("check target slot booking: %w", err)
+	}
+
+	if alreadyBooked {
+		return nil, ErrSlotBooked
+	}
+
+	// The move itself: same booking ID, same history, new slot.
+	err = tx.QueryRow(ctx, `
+		UPDATE bookings
+		SET slot_id = $2,
+		    updated_at = NOW()
+		WHERE id = $1
+		RETURNING updated_at
+	`, booking.ID, newSlotID).Scan(&booking.UpdatedAt)
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) &&
+			pgErr.Code == "23505" &&
+			pgErr.ConstraintName == "bookings_one_active_per_slot" {
+			return nil, ErrSlotBooked
+		}
+
+		return nil, fmt.Errorf("reschedule booking: %w", err)
+	}
+
+	booking.SlotID = newSlotID
+
+	// Notify the customer about the reschedule.
+	_, _, err = r.notificationRepository().CreateWithDelivery(ctx, tx, notifications.CreateInput{
+		UserID:    customerID,
+		BookingID: &booking.ID,
+		Type:      "booking_rescheduled",
+		Title:     "Appointment rescheduled",
+		Message:   "Your appointment has been moved to a new time.",
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("create customer reschedule notification: %w", err)
+	}
+
+	// Notify the provider about the reschedule.
+	_, _, err = r.notificationRepository().CreateWithDelivery(ctx, tx, notifications.CreateInput{
+		UserID:    newSlotProvider,
+		BookingID: &booking.ID,
+		Type:      "customer_rescheduled",
+		Title:     "Appointment rescheduled by customer",
+		Message:   "A customer has moved their booking to a different slot.",
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("create provider reschedule notification: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit reschedule transaction: %w", err)
 	}
 
 	return &booking, nil

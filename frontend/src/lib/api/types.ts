@@ -138,6 +138,34 @@ export interface CreateProfileInput {
 }
 
 // ---------------------------------------------------------------------------
+// Public provider discovery (unauthenticated API surface)
+// ---------------------------------------------------------------------------
+
+/** Public provider as returned by GET /providers — no user account fields. */
+export interface PublicProvider {
+  id: string;
+  display_name: string;
+  bio?: string | null;
+  timezone: string;
+  created_at: string;
+}
+
+export interface ProviderListParams {
+  search?: string;
+  available_from?: string;
+  available_to?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ProviderListResult {
+  items: PublicProvider[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// ---------------------------------------------------------------------------
 // Bookings (provider view)
 // ---------------------------------------------------------------------------
 

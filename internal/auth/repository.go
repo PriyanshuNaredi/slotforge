@@ -107,6 +107,32 @@ func (r *Repository) CreateRefreshToken(
 	return nil
 }
 
+// RevokeRefreshToken revokes one refresh token. Matching on user_id as
+// well as the hash means a user can never revoke another user's token.
+// The revoked_at IS NULL guard makes repeat calls a no-op, and one UPDATE
+// is atomic without an explicit transaction. Returns whether a live token
+// was revoked now; false covers unknown, expired, already-revoked, and
+// foreign tokens alike.
+func (r *Repository) RevokeRefreshToken(
+	ctx context.Context,
+	userID uuid.UUID,
+	tokenHash []byte,
+) (bool, error) {
+	tag, err := r.db.Exec(ctx, `
+		UPDATE refresh_tokens
+		SET revoked_at = NOW()
+		WHERE token_hash = $1
+		  AND user_id = $2
+		  AND revoked_at IS NULL
+	`, tokenHash, userID)
+
+	if err != nil {
+		return false, fmt.Errorf("revoke refresh token: %w", err)
+	}
+
+	return tag.RowsAffected() > 0, nil
+}
+
 // RotateRefreshToken atomically revokes the old token and stores
 // its replacement. Concurrent attempts to use the same token
 // cannot both succeed.
