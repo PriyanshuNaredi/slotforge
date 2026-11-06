@@ -292,6 +292,23 @@ func TestProviderBookingStatusHandlerBusinessErrors(t *testing.T) {
 		}
 	})
 
+	// Regression: the all-zero UUID used to hit a service special case
+	// that returned a generic error, surfacing as 500 instead of 404.
+	t.Run("all-zero booking UUID returns 404", func(t *testing.T) {
+		response, body := doBookingStatusRequest(
+			t, router, token, uuid.Nil.String(),
+			`{"status":"completed"}`,
+		)
+
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("expected 404, got %d: %s", response.Code, response.Body.String())
+		}
+
+		if body["error"] != "booking not found" {
+			t.Errorf("expected booking not found error, got %v", body["error"])
+		}
+	})
+
 	t.Run("valid update succeeds after rejected update", func(t *testing.T) {
 		response, body := doBookingStatusRequest(
 			t, router, token, confirmedBooking.String(),

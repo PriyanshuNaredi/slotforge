@@ -243,9 +243,8 @@ func (s *Service) UpdateProviderBookingStatus(
 		return nil, errors.New("invalid provider ID")
 	}
 
-	if bookingID == uuid.Nil {
-		return nil, errors.New("invalid booking ID")
-	}
+	// uuid.Nil and any other unknown booking ID both fall through to the
+	// repository, which returns ErrProviderBookingNotFound (→ 404).
 
 	validStatuses := map[string]bool{
 		"confirmed": true,

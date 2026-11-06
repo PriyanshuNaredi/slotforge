@@ -248,18 +248,32 @@ func TestUpdateProviderBookingStatusNotFound(t *testing.T) {
 
 	providerID := createDashboardProvider(t, pool, service)
 
-	_, err := service.UpdateProviderBookingStatus(
-		context.Background(),
-		providerID,
-		uuid.New(),
-		"completed",
-	)
+	// Regression: the all-zero UUID must take the same not-found path
+	// as any other nonexistent booking ID, not a generic error.
+	tests := []struct {
+		name      string
+		bookingID uuid.UUID
+	}{
+		{name: "all-zero UUID", bookingID: uuid.Nil},
+		{name: "random nonexistent UUID", bookingID: uuid.New()},
+	}
 
-	if !errors.Is(err, ErrProviderBookingNotFound) {
-		t.Fatalf(
-			"expected ErrProviderBookingNotFound, got %v",
-			err,
-		)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := service.UpdateProviderBookingStatus(
+				context.Background(),
+				providerID,
+				tt.bookingID,
+				"completed",
+			)
+
+			if !errors.Is(err, ErrProviderBookingNotFound) {
+				t.Fatalf(
+					"expected ErrProviderBookingNotFound, got %v",
+					err,
+				)
+			}
+		})
 	}
 }
 
@@ -278,17 +292,6 @@ func TestUpdateProviderBookingStatusInvalidInput(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected invalid provider ID error")
-	}
-
-	_, err = service.UpdateProviderBookingStatus(
-		context.Background(),
-		providerID,
-		uuid.Nil,
-		"completed",
-	)
-
-	if err == nil {
-		t.Fatal("expected invalid booking ID error")
 	}
 
 	_, err = service.UpdateProviderBookingStatus(
