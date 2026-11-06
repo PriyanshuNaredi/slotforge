@@ -213,7 +213,7 @@ func TestGetBookingHandler(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			mock := &mockBookingService{
-				booking: &Booking{
+				detail: &BookingDetail{
 					ID:         bookingID,
 					CustomerID: customerID,
 					Status:     StatusConfirmed,

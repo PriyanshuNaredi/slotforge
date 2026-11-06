@@ -14,7 +14,7 @@ import (
 
 type BookingService interface {
 	CreateBooking(ctx context.Context, customerID uuid.UUID, input CreateBookingInput) (*Booking, error)
-	GetBooking(ctx context.Context, id, customerID uuid.UUID, isAdmin bool) (*Booking, error)
+	GetBooking(ctx context.Context, id, callerID uuid.UUID, isAdmin bool) (*BookingDetail, error)
 	SearchAvailableSlotsWithCount(ctx context.Context, input SlotSearchInput) (*SlotSearchResult, error)
 	GetAvailableSlot(ctx context.Context, slotID uuid.UUID) (*AvailableSlot, error)
 	ListCustomerBookings(ctx context.Context, customerID uuid.UUID, input BookingListInput) (*BookingListResult, error)
@@ -134,7 +134,7 @@ func (h *Handler) CreateBooking(c *gin.Context) {
 }
 
 func (h *Handler) GetBooking(c *gin.Context) {
-	customerID, role, err := getAuthenticatedUser(c)
+	callerID, role, err := getAuthenticatedUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "authentication required",
@@ -153,7 +153,7 @@ func (h *Handler) GetBooking(c *gin.Context) {
 	booking, err := h.service.GetBooking(
 		c.Request.Context(),
 		id,
-		customerID,
+		callerID,
 		role == "admin",
 	)
 

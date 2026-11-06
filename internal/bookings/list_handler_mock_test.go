@@ -16,6 +16,7 @@ type mockBookingService struct {
 
 	// Create / Get booking configuration.
 	booking                 *Booking
+	detail                  *BookingDetail
 	bookingErr              error
 	calledBookingCustomerID uuid.UUID
 	calledCreateInput       CreateBookingInput
@@ -55,13 +56,13 @@ func (m *mockBookingService) CreateBooking(
 
 func (m *mockBookingService) GetBooking(
 	ctx context.Context,
-	id, customerID uuid.UUID,
+	id, callerID uuid.UUID,
 	isAdmin bool,
-) (*Booking, error) {
+) (*BookingDetail, error) {
 	m.calledGetID = id
-	m.calledGetCustomerID = customerID
+	m.calledGetCustomerID = callerID
 	m.calledIsAdmin = isAdmin
-	return m.booking, m.bookingErr
+	return m.detail, m.bookingErr
 }
 
 func (m *mockBookingService) SearchAvailableSlotsWithCount(

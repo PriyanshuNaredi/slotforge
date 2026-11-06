@@ -174,46 +174,71 @@ func (r *Repository) Create(
 	return &booking, nil
 }
 
-// GetByIDForUser hides bookings belonging to other customers.
-// Administrators can retrieve any booking.
+// GetByIDForUser returns full booking detail for authorized viewers only:
+// the booking's customer, the provider who owns the booked slot, or an
+// administrator. Everyone else — other customers, other providers — gets
+// pgx.ErrNoRows, indistinguishable from a missing booking. The slot join has
+// no status or time filter on purpose: slots are never deleted (FK ON DELETE
+// RESTRICT), so closed and past slots still resolve and historical bookings
+// stay fully displayable.
 func (r *Repository) GetByIDForUser(
 	ctx context.Context,
 	id uuid.UUID,
-	customerID uuid.UUID,
+	callerID uuid.UUID,
 	isAdmin bool,
-) (*Booking, error) {
-	var booking Booking
+) (*BookingDetail, error) {
+	var detail BookingDetail
 
 	err := r.db.QueryRow(ctx, `
 		SELECT
-			id,
-			slot_id,
-			customer_id,
-			status,
-			notes,
-			created_at,
-			updated_at
-		FROM bookings
-		WHERE id = $1
-		  AND ($2::boolean OR customer_id = $3)
-	`, id, isAdmin, customerID).Scan(
-		&booking.ID,
-		&booking.SlotID,
-		&booking.CustomerID,
-		&booking.Status,
-		&booking.Notes,
-		&booking.CreatedAt,
-		&booking.UpdatedAt,
+			b.id,
+			b.slot_id,
+			b.customer_id,
+			b.status,
+			b.notes,
+			b.created_at,
+			b.updated_at,
+			s.status,
+			s.starts_at,
+			s.ends_at,
+			s.provider_id,
+			p.display_name,
+			p.timezone,
+			u.email
+		FROM bookings b
+		JOIN availability_slots s
+			ON s.id = b.slot_id
+		JOIN provider_profiles p
+			ON p.user_id = s.provider_id
+		JOIN users u
+			ON u.id = b.customer_id
+		WHERE b.id = $1
+		  AND ($2::boolean OR b.customer_id = $3 OR s.provider_id = $3)
+	`, id, isAdmin, callerID).Scan(
+		&detail.ID,
+		&detail.SlotID,
+		&detail.CustomerID,
+		&detail.Status,
+		&detail.Notes,
+		&detail.CreatedAt,
+		&detail.UpdatedAt,
+		&detail.SlotStatus,
+		&detail.StartsAt,
+		&detail.EndsAt,
+		&detail.ProviderID,
+		&detail.ProviderName,
+		&detail.ProviderTimezone,
+		&detail.CustomerEmail,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, pgx.ErrNoRows
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get booking: %w", err)
+		return nil, fmt.Errorf("get booking detail: %w", err)
 	}
 
-	return &booking, nil
+	return &detail, nil
 }
 
 func (r *Repository) SearchAvailableSlots(

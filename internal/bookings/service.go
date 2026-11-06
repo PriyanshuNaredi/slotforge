@@ -78,14 +78,17 @@ func slotSearchCacheKey(input SlotSearchInput) string {
 func (s *Service) GetBooking(
 	ctx context.Context,
 	id uuid.UUID,
-	customerID uuid.UUID,
+	callerID uuid.UUID,
 	isAdmin bool,
-) (*Booking, error) {
-	if id == uuid.Nil || customerID == uuid.Nil {
-		return nil, errors.New("invalid booking or customer ID")
+) (*BookingDetail, error) {
+	if callerID == uuid.Nil {
+		return nil, errors.New("invalid caller ID")
 	}
 
-	return s.repo.GetByIDForUser(ctx, id, customerID, isAdmin)
+	// Any unknown booking ID, including uuid.Nil, falls through to the
+	// repository and returns pgx.ErrNoRows (→ 404).
+
+	return s.repo.GetByIDForUser(ctx, id, callerID, isAdmin)
 }
 
 func (s *Service) SearchAvailableSlots(
@@ -209,9 +212,12 @@ func (s *Service) CancelBooking(
 	bookingID uuid.UUID,
 	customerID uuid.UUID,
 ) (*Booking, error) {
-	if bookingID == uuid.Nil || customerID == uuid.Nil {
-		return nil, errors.New("invalid booking or customer ID")
+	if customerID == uuid.Nil {
+		return nil, errors.New("invalid customer ID")
 	}
+
+	// Any unknown booking ID, including uuid.Nil, falls through to the
+	// repository and returns ErrBookingNotFound (→ 404).
 
 	booking, err := s.repo.CancelByCustomer(
 		ctx,
@@ -236,13 +242,13 @@ func (s *Service) RescheduleBooking(
 	customerID uuid.UUID,
 	newSlotID uuid.UUID,
 ) (*Booking, error) {
-	if bookingID == uuid.Nil || customerID == uuid.Nil {
-		return nil, errors.New("invalid booking or customer ID")
+	if customerID == uuid.Nil {
+		return nil, errors.New("invalid customer ID")
 	}
 
-	if newSlotID == uuid.Nil {
-		return nil, errors.New("slot_id is required")
-	}
+	// Unknown booking or target-slot IDs, including uuid.Nil, fall through
+	// to the repository, which locks target slot first and returns
+	// ErrSlotNotFound or ErrBookingNotFound (→ 404).
 
 	booking, err := s.repo.RescheduleByCustomer(
 		ctx,
