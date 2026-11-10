@@ -142,13 +142,20 @@ func (r *Repository) CreateSlot(
 		return nil, ErrInvalidSlotTime
 	}
 
+	// New availability may not overlap a blocked period. The guard lives in
+	// the statement itself so a period committed mid-flight cannot be missed.
 	query := `
 		INSERT INTO availability_slots (
 			provider_id,
 			starts_at,
 			ends_at
 		)
-		VALUES ($1, $2, $3)
+		SELECT $1, $2, $3
+		WHERE NOT EXISTS (
+			SELECT 1 FROM provider_unavailable_periods
+			WHERE provider_id = $1
+			  AND tstzrange(starts_at, ends_at, '[)') && tstzrange($2, $3, '[)')
+		)
 		RETURNING
 			id,
 			provider_id,
@@ -184,10 +191,217 @@ func (r *Repository) CreateSlot(
 			return nil, ErrSlotOverlap
 		}
 
+		if errors.Is(err, pgx.ErrNoRows) {
+			// The INSERT..SELECT guard skipped the row: a blocked period overlaps.
+			return nil, ErrSlotBlockedByUnavailability
+		}
+
 		return nil, fmt.Errorf("create availability slot: %w", err)
 	}
 
 	return &slot, nil
+}
+
+// mapTransientTxError reports PostgreSQL deadlock (40P01) and serialization
+// (40001) failures as a retryable sentinel instead of an opaque 500.
+func mapTransientTxError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && (pgErr.Code == "40P01" || pgErr.Code == "40001") {
+		return ErrUnavailableLocked
+	}
+	return nil
+}
+
+// CreateUnavailablePeriod blocks a window. Overlapping an ACTIVE booking
+// (pending/confirmed) is rejected inside the same transaction, and the
+// overlapping slot rows are locked FOR UPDATE first: booking creation and
+// rescheduling take the same slot lock before checking availability, so a
+// booking can never commit into a window that this transaction blocks.
+func (r *Repository) CreateUnavailablePeriod(
+	ctx context.Context,
+	providerID uuid.UUID,
+	input CreateUnavailablePeriodInput,
+) (*UnavailablePeriod, error) {
+	if !input.EndsAt.After(input.StartsAt) {
+		return nil, ErrInvalidUnavailability
+	}
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin unavailable period transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	// Serialize against booking creation/rescheduling, which lock the target
+	// slot first: without this shared lock both sides could check "nothing
+	// conflicts" and commit a booking inside a blocked window. Rows are
+	// locked in deterministic id order so two concurrent blocks on
+	// overlapping windows cannot deadlock waiting for each other's rows.
+	rows, err := tx.Query(ctx, `
+		SELECT id FROM availability_slots
+		WHERE provider_id = $1
+		  AND tstzrange(starts_at, ends_at, '[)') && tstzrange($2, $3, '[)')
+		ORDER BY id
+		FOR UPDATE
+	`, providerID, input.StartsAt, input.EndsAt)
+	if err != nil {
+		if transient := mapTransientTxError(err); transient != nil {
+			return nil, transient
+		}
+		return nil, fmt.Errorf("lock overlapping slots: %w", err)
+	}
+	rows.Close()
+
+	var hasBookings bool
+	err = tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM bookings b
+			JOIN availability_slots s ON s.id = b.slot_id
+			WHERE s.provider_id = $1
+			  AND b.status IN ('pending', 'confirmed')
+			  AND tstzrange(s.starts_at, s.ends_at, '[)')
+			      && tstzrange($2, $3, '[)')
+		)
+	`, providerID, input.StartsAt, input.EndsAt).Scan(&hasBookings)
+	if err != nil {
+		return nil, fmt.Errorf("check active bookings in window: %w", err)
+	}
+	if hasBookings {
+		return nil, ErrUnavailableHasBookings
+	}
+
+	var period UnavailablePeriod
+
+	err = tx.QueryRow(ctx, `
+		INSERT INTO provider_unavailable_periods (provider_id, starts_at, ends_at, reason)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, provider_id, starts_at, ends_at, reason, created_at
+	`,
+		providerID, input.StartsAt, input.EndsAt, input.Reason,
+	).Scan(
+		&period.ID, &period.ProviderID, &period.StartsAt, &period.EndsAt,
+		&period.Reason, &period.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create unavailable period: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		if transient := mapTransientTxError(err); transient != nil {
+			return nil, transient
+		}
+		return nil, fmt.Errorf("commit unavailable period: %w", err)
+	}
+
+	return &period, nil
+}
+
+// ListUnavailablePeriods returns the provider's blocked windows, soonest first.
+func (r *Repository) ListUnavailablePeriods(
+	ctx context.Context,
+	providerID uuid.UUID,
+) ([]UnavailablePeriod, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, provider_id, starts_at, ends_at, reason, created_at
+		FROM provider_unavailable_periods
+		WHERE provider_id = $1
+		ORDER BY starts_at
+	`, providerID)
+	if err != nil {
+		return nil, fmt.Errorf("list unavailable periods: %w", err)
+	}
+	defer rows.Close()
+
+	periods := make([]UnavailablePeriod, 0)
+	for rows.Next() {
+		var p UnavailablePeriod
+		if err := rows.Scan(
+			&p.ID, &p.ProviderID, &p.StartsAt, &p.EndsAt, &p.Reason, &p.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan unavailable period: %w", err)
+		}
+		periods = append(periods, p)
+	}
+
+	return periods, rows.Err()
+}
+
+// DeleteUnavailablePeriod removes a blocked window owned by the provider.
+func (r *Repository) DeleteUnavailablePeriod(
+	ctx context.Context,
+	providerID, periodID uuid.UUID,
+) error {
+	tag, err := r.db.Exec(ctx, `
+		DELETE FROM provider_unavailable_periods
+		WHERE id = $1 AND provider_id = $2
+	`, periodID, providerID)
+	if err != nil {
+		return fmt.Errorf("delete unavailable period: %w", err)
+	}
+
+	if tag.RowsAffected() == 0 {
+		return ErrUnavailableNotFound
+	}
+
+	return nil
+}
+
+// CreateSlotsBatch inserts concrete slot windows in one transaction. Exact
+// duplicates (same provider and start instant) are skipped so re-running a
+// rule is idempotent; an overlap with a different open slot trips the
+// availability_no_overlap exclusion constraint and rolls the whole batch
+// back (ErrSlotOverlap).
+func (r *Repository) CreateSlotsBatch(
+	ctx context.Context,
+	providerID uuid.UUID,
+	slots []SlotTime,
+) (created int64, skipped int64, err error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return 0, 0, fmt.Errorf("begin slot batch: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	const insert = `
+		INSERT INTO availability_slots (provider_id, starts_at, ends_at)
+		SELECT $1, $2, $3
+		WHERE NOT EXISTS (
+			SELECT 1 FROM availability_slots
+			WHERE provider_id = $1 AND starts_at = $2
+		)
+		  AND NOT EXISTS (
+			SELECT 1 FROM provider_unavailable_periods
+			WHERE provider_id = $1
+			  AND tstzrange(starts_at, ends_at, '[)') && tstzrange($2, $3, '[)')
+		)
+	`
+
+	for _, s := range slots {
+		tag, err := tx.Exec(ctx, insert, providerID, s.StartsAt, s.EndsAt)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23P01" {
+				return 0, 0, ErrSlotOverlap
+			}
+			return 0, 0, fmt.Errorf("insert recurring slot: %w", err)
+		}
+		if tag.RowsAffected() == 1 {
+			created++
+		} else {
+			skipped++
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, fmt.Errorf("commit slot batch: %w", err)
+	}
+
+	return created, skipped, nil
 }
 
 func (r *Repository) ListSlots(
@@ -685,6 +899,13 @@ const publicProviderFilter = `
 		            FROM bookings b
 		            WHERE b.slot_id = s.id
 		              AND b.status IN ('pending', 'confirmed')
+		        )
+		        AND NOT EXISTS (
+		            SELECT 1
+		            FROM provider_unavailable_periods up
+		            WHERE up.provider_id = s.provider_id
+		              AND tstzrange(up.starts_at, up.ends_at, '[)')
+		                  && tstzrange(s.starts_at, s.ends_at, '[)')
 		        )
 		  ))`
 

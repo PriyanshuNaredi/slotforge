@@ -12,6 +12,10 @@ var (
 	ErrInvalidSlotTime      = errors.New("slot end time must be after start time")
 	ErrSlotOverlap          = errors.New("slot overlaps with an existing open slot")
 	ErrSlotHasActiveBooking = errors.New("cannot close a slot with an active booking")
+	// ErrSlotBlockedByUnavailability is returned when explicitly requested
+	// availability overlaps a blocked unavailable period. The recurring batch
+	// path instead skips such windows (reported in the response counts).
+	ErrSlotBlockedByUnavailability = errors.New("slot overlaps an unavailable period")
 )
 
 // Slot represents an appointment slot offered by a provider.

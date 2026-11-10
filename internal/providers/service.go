@@ -137,6 +137,79 @@ func (s *Service) CreateSlot(
 	return slot, nil
 }
 
+// RecurringResult reports what one rule materialized.
+type RecurringResult struct {
+	Created int64 `json:"created"`
+	Skipped int64 `json:"skipped"`
+}
+
+// CreateRecurringSlots validates a weekly recurrence rule, materializes
+// concrete slot windows in the provider's timezone and inserts them in a
+// single transaction. Re-running a rule skips exact duplicates; any overlap
+// with a different open slot rejects the whole batch.
+func (s *Service) CreateRecurringSlots(
+	ctx context.Context,
+	providerID uuid.UUID,
+	input RecurringRuleInput,
+) (*RecurringResult, error) {
+	startH, startM, endH, endM, from, to, loc, days, err := parseRecurringRule(input, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	slots, err := generateRecurringSlots(startH, startM, endH, endM, from, to, loc, days)
+	if err != nil {
+		return nil, err
+	}
+
+	created, skipped, err := s.repo.CreateSlotsBatch(ctx, providerID, slots)
+	if err != nil {
+		return nil, err
+	}
+
+	s.invalidateSlotSearchCache()
+
+	return &RecurringResult{Created: created, Skipped: skipped}, nil
+}
+
+// CreateUnavailablePeriod blocks a window. A window overlapping active
+// bookings is rejected — existing bookings are never silently cancelled.
+func (s *Service) CreateUnavailablePeriod(
+	ctx context.Context,
+	providerID uuid.UUID,
+	input CreateUnavailablePeriodInput,
+) (*UnavailablePeriod, error) {
+	period, err := s.repo.CreateUnavailablePeriod(ctx, providerID, input)
+	if err != nil {
+		return nil, err
+	}
+
+	s.invalidateSlotSearchCache()
+
+	return period, nil
+}
+
+func (s *Service) ListUnavailablePeriods(
+	ctx context.Context,
+	providerID uuid.UUID,
+) ([]UnavailablePeriod, error) {
+	return s.repo.ListUnavailablePeriods(ctx, providerID)
+}
+
+func (s *Service) DeleteUnavailablePeriod(
+	ctx context.Context,
+	providerID, periodID uuid.UUID,
+) error {
+	err := s.repo.DeleteUnavailablePeriod(ctx, providerID, periodID)
+	if err != nil {
+		return err
+	}
+
+	s.invalidateSlotSearchCache()
+
+	return nil
+}
+
 func (s *Service) ListSlots(
 	ctx context.Context,
 	providerID uuid.UUID,

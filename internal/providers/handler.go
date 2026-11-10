@@ -37,12 +37,17 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/providers/profile/me", h.GetMyProfile)
 
 	router.POST("/providers/slots", h.CreateSlot)
+	router.POST("/providers/slots/recurring", h.CreateRecurringSlots)
 	router.GET("/providers/slots", h.ListSlots)
 	router.GET("/providers/slots/:id", h.GetSlot)
 	router.PATCH("/providers/slots/:id/close", h.CloseSlot)
 
 	router.GET("/providers/bookings", h.ListProviderBookings)
 	router.PATCH("/providers/bookings/:id/status", h.UpdateProviderBookingStatus)
+
+	router.POST("/providers/unavailability", h.CreateUnavailablePeriod)
+	router.GET("/providers/unavailability", h.ListUnavailablePeriods)
+	router.DELETE("/providers/unavailability/:id", h.DeleteUnavailablePeriod)
 }
 
 // Extract the authenticated user's ID from Gin context.
@@ -275,7 +280,7 @@ func (h *Handler) CreateSlot(c *gin.Context) {
 			return
 		}
 
-		if errors.Is(err, ErrSlotOverlap) {
+		if errors.Is(err, ErrSlotOverlap) || errors.Is(err, ErrSlotBlockedByUnavailability) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
@@ -285,6 +290,121 @@ func (h *Handler) CreateSlot(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, slot)
+}
+
+// CreateRecurringSlots materializes weekly recurring availability.
+func (h *Handler) CreateRecurringSlots(c *gin.Context) {
+	providerID, err := getProviderUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var input RecurringRuleInput
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid recurrence rule"})
+		return
+	}
+
+	result, err := h.service.CreateRecurringSlots(c.Request.Context(), providerID, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidTimezone),
+			errors.Is(err, ErrInvalidRuleWindow),
+			errors.Is(err, ErrInvalidRuleTime),
+			errors.Is(err, ErrInvalidDaysOfWeek),
+			errors.Is(err, ErrRuleTooManySlots),
+			errors.Is(err, ErrRuleInPast),
+			errors.Is(err, ErrRuleNoMatchingDays):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+		case errors.Is(err, ErrSlotOverlap):
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create recurring slots"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusCreated, result)
+}
+
+func (h *Handler) CreateUnavailablePeriod(c *gin.Context) {
+	providerID, err := getProviderUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var input CreateUnavailablePeriodInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	if input.StartsAt.IsZero() || input.EndsAt.IsZero() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "start and end times are required"})
+		return
+	}
+
+	period, err := h.service.CreateUnavailablePeriod(c.Request.Context(), providerID, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvalidUnavailability):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case errors.Is(err, ErrUnavailableHasBookings), errors.Is(err, ErrUnavailableLocked):
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create unavailable period"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusCreated, period)
+}
+
+func (h *Handler) ListUnavailablePeriods(c *gin.Context) {
+	providerID, err := getProviderUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	periods, err := h.service.ListUnavailablePeriods(c.Request.Context(), providerID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not retrieve unavailable periods"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"unavailable_periods": periods})
+}
+
+func (h *Handler) DeleteUnavailablePeriod(c *gin.Context) {
+	providerID, err := getProviderUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	periodID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid unavailable period ID"})
+		return
+	}
+
+	err = h.service.DeleteUnavailablePeriod(c.Request.Context(), providerID, periodID)
+	if err != nil {
+		if errors.Is(err, ErrUnavailableNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not delete unavailable period"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 func (h *Handler) ListSlots(c *gin.Context) {

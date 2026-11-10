@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,18 +16,96 @@ var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrWeakPassword       = errors.New("password must be at least 12 characters")
 	ErrPasswordTooLong    = errors.New("password must not exceed 72 bytes")
+	ErrTooManyAttempts    = errors.New("too many login attempts; try again later")
+)
+
+// Login throttle: per-account fixed window. Keyed by email, not IP, so
+// IP spoofing cannot bypass it. A successful login resets the counter.
+const (
+	loginAttemptLimit  = 10
+	loginAttemptWindow = 5 * time.Minute
+	// maxTrackedLoginWindows caps the failure map so an attacker cycling
+	// distinct email addresses cannot grow process memory without bound.
+	maxTrackedLoginWindows = 10_000
 )
 
 type Service struct {
-	repo   *Repository
-	tokens *TokenManager
+	repo    *Repository
+	tokens  *TokenManager
+	fails   map[string]*loginWindow
+	failsMu sync.Mutex
+}
+
+// loginWindow counts failed logins for one account within a fixed window.
+type loginWindow struct {
+	start time.Time
+	count int
 }
 
 func NewService(repo *Repository, tokens *TokenManager) *Service {
 	return &Service{
 		repo:   repo,
 		tokens: tokens,
+		fails:  make(map[string]*loginWindow),
 	}
+}
+
+// loginThrottled reports whether the account has exceeded the failed-login
+// budget for the current window.
+func (s *Service) loginThrottled(email string) bool {
+	s.failsMu.Lock()
+	defer s.failsMu.Unlock()
+
+	w, ok := s.fails[email]
+	if !ok {
+		return false
+	}
+	if time.Since(w.start) >= loginAttemptWindow {
+		delete(s.fails, email)
+		return false
+	}
+	return w.count >= loginAttemptLimit
+}
+
+// recordLoginFailure increments the failed-login counter for the account.
+func (s *Service) recordLoginFailure(email string) {
+	s.failsMu.Lock()
+	defer s.failsMu.Unlock()
+
+	w, ok := s.fails[email]
+	if !ok || time.Since(w.start) >= loginAttemptWindow {
+		// Bound the map: an attacker spraying distinct addresses must not
+		// grow it forever. Sweep expired entries; if still full, skip
+		// tracking the new key (fail-open — the throttle is a mitigation,
+		// not the auth control).
+		if len(s.fails) >= maxTrackedLoginWindows {
+			s.sweepExpiredLocked()
+			if len(s.fails) >= maxTrackedLoginWindows {
+				return
+			}
+		}
+		s.fails[email] = &loginWindow{start: time.Now(), count: 1}
+		return
+	}
+	w.count++
+}
+
+// sweepExpiredLocked drops windows whose fixed window has elapsed. Caller
+// must hold failsMu.
+func (s *Service) sweepExpiredLocked() {
+	now := time.Now()
+	for email, w := range s.fails {
+		if now.Sub(w.start) >= loginAttemptWindow {
+			delete(s.fails, email)
+		}
+	}
+}
+
+// recordLoginSuccess clears the counter after a successful login.
+func (s *Service) recordLoginSuccess(email string) {
+	s.failsMu.Lock()
+	defer s.failsMu.Unlock()
+	delete(s.fails, email)
 }
 
 func (s *Service) Register(
@@ -68,6 +147,10 @@ func (s *Service) Login(
 ) (*AuthResponse, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 
+	if s.loginThrottled(email) {
+		return nil, ErrTooManyAttempts
+	}
+
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrInvalidCredentials
@@ -77,6 +160,7 @@ func (s *Service) Login(
 	}
 
 	if !user.IsActive {
+		s.recordLoginFailure(email)
 		return nil, ErrInvalidCredentials
 	}
 
@@ -85,8 +169,11 @@ func (s *Service) Login(
 		[]byte(password),
 	)
 	if err != nil {
+		s.recordLoginFailure(email)
 		return nil, ErrInvalidCredentials
 	}
+
+	s.recordLoginSuccess(email)
 
 	return s.issueTokens(ctx, user)
 }

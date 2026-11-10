@@ -3,7 +3,7 @@ package notifications
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -56,6 +56,20 @@ type EmailWorker struct {
 	pollInterval     time.Duration
 	recoveryInterval time.Duration
 	staleAfter       time.Duration
+	logger           *slog.Logger
+}
+
+// SetLogger injects a structured logger. When unset the worker logs through
+// slog's default logger.
+func (w *EmailWorker) SetLogger(logger *slog.Logger) {
+	w.logger = logger
+}
+
+func (w *EmailWorker) log() *slog.Logger {
+	if w.logger == nil {
+		return slog.Default()
+	}
+	return w.logger
 }
 
 const (
@@ -140,15 +154,12 @@ func (w *EmailWorker) Run(ctx context.Context) {
 func (w *EmailWorker) recoverStaleClaims(ctx context.Context) {
 	recovered, err := w.deliveries.RecoverStaleClaims(ctx, w.staleAfter)
 	if err != nil {
-		log.Printf("email worker: recover stale claims: %v", err)
+		w.log().Error("email_worker.recover_stale_claims_failed", slog.Any("error", err))
 		return
 	}
 
 	if recovered > 0 {
-		log.Printf(
-			"email worker: recovered %d stale delivery claim(s)",
-			recovered,
-		)
+		w.log().Info("email_worker.stale_claims_recovered", slog.Int64("recovered", recovered))
 	}
 }
 
@@ -160,7 +171,7 @@ func (w *EmailWorker) processBatch(ctx context.Context) {
 	deliveries, err := w.deliveries.ClaimBatch(ctx, w.batchSize)
 	if err != nil {
 		if ctx.Err() == nil {
-			log.Printf("email worker: claim delivery batch: %v", err)
+			w.log().Error("email_worker.claim_batch_failed", slog.Any("error", err))
 		}
 		return
 	}
@@ -188,10 +199,9 @@ func (w *EmailWorker) processOne(
 			return
 		}
 
-		log.Printf(
-			"email worker: lookup notification for delivery %s: %v",
-			delivery.ID,
-			err,
+		w.log().Error("email_worker.notification_lookup_failed",
+			slog.String("delivery_id", delivery.ID.String()),
+			slog.Any("error", err),
 		)
 
 		w.scheduleRetry(ctx, delivery, "notification lookup failed")
@@ -211,10 +221,10 @@ func (w *EmailWorker) processOne(
 			return
 		}
 
-		log.Printf(
-			"email worker: send email for delivery %s failed: %v",
-			delivery.ID,
-			err,
+		w.log().Warn("email_worker.send_failed",
+			slog.String("delivery_id", delivery.ID.String()),
+			slog.Int("attempts", delivery.Attempts),
+			slog.Any("error", err),
 		)
 
 		w.scheduleRetry(ctx, delivery, err.Error())
@@ -224,15 +234,17 @@ func (w *EmailWorker) processOne(
 	if err := w.deliveries.MarkSent(ctx, delivery.ID); err != nil {
 		// The provider accepted the email, so retrying would send a
 		// duplicate. Leave the claim in place for stale-claim recovery.
-		log.Printf(
-			"email worker: delivery %s was sent but could not be marked sent: %v; the job will be recovered and may be delivered again",
-			delivery.ID,
-			err,
+		w.log().Warn("email_worker.mark_sent_failed_duplicate_possible",
+			slog.String("delivery_id", delivery.ID.String()),
+			slog.Any("error", err),
 		)
 		return
 	}
 
-	log.Printf("email worker: delivered notification email %s", delivery.ID)
+	w.log().Info("email_worker.delivered",
+		slog.String("delivery_id", delivery.ID.String()),
+		slog.String("notification_id", delivery.NotificationID.String()),
+	)
 }
 
 func (w *EmailWorker) scheduleRetry(
@@ -245,10 +257,10 @@ func (w *EmailWorker) scheduleRetry(
 		delivery.ID,
 		truncateErrorText(cause),
 	); err != nil {
-		log.Printf(
-			"email worker: schedule retry for delivery %s: %v",
-			delivery.ID,
-			err,
+		w.log().Error("email_worker.schedule_retry_failed",
+			slog.String("delivery_id", delivery.ID.String()),
+			slog.Any("error", err),
 		)
 	}
 }
+

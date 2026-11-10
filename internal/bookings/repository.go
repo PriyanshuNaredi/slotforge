@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -17,6 +18,7 @@ var (
 	ErrSlotNotFound          = errors.New("availability slot not found")
 	ErrSlotClosed            = errors.New("availability slot is closed")
 	ErrSlotBooked            = errors.New("availability slot is already booked")
+	ErrSlotBlocked           = errors.New("availability slot falls in an unavailable period")
 	ErrBookingNotFound       = errors.New("booking not found")
 	ErrBookingNotCancellable = errors.New("booking cannot be cancelled")
 	// Reschedule-specific rejections.
@@ -59,14 +61,16 @@ func (r *Repository) Create(
 	var (
 		slotStatus string
 		providerID uuid.UUID
+		startsAt   time.Time
+		endsAt     time.Time
 	)
 
 	err = tx.QueryRow(ctx, `
-	SELECT status, provider_id
+	SELECT status, provider_id, starts_at, ends_at
 	FROM availability_slots
 	WHERE id = $1
 	FOR UPDATE
-`, input.SlotID).Scan(&slotStatus, &providerID)
+`, input.SlotID).Scan(&slotStatus, &providerID, &startsAt, &endsAt)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSlotNotFound
@@ -77,6 +81,21 @@ func (r *Repository) Create(
 
 	if slotStatus != "open" {
 		return nil, ErrSlotClosed
+	}
+
+	// A blocked provider window may not be booked.
+	var blocked bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM provider_unavailable_periods
+			WHERE provider_id = $1
+			  AND tstzrange(starts_at, ends_at, '[)') && tstzrange($2, $3, '[)')
+		)
+	`, providerID, startsAt, endsAt).Scan(&blocked); err != nil {
+		return nil, fmt.Errorf("check unavailable period: %w", err)
+	}
+	if blocked {
+		return nil, ErrSlotBlocked
 	}
 
 	var alreadyBooked bool
@@ -265,22 +284,28 @@ func (r *Repository) SearchAvailableSlots(
     WHERE b.slot_id = s.id
       AND b.status IN ('pending', 'confirmed')
 )
-		  AND (
-			  $1::uuid IS NULL
-			  OR s.provider_id = $1
-		  )
-		  AND (
-			  $2::timestamptz IS NULL
-			  OR s.starts_at >= $2
-		  )
-		  AND (
-			  $3::timestamptz IS NULL
-			  OR s.starts_at < $3
-		  )
-		ORDER BY s.starts_at ASC
-		LIMIT $4
-		OFFSET $5
-	`
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM provider_unavailable_periods up
+			WHERE up.provider_id = s.provider_id
+			  AND tstzrange(up.starts_at, up.ends_at, '[)') && tstzrange(s.starts_at, s.ends_at, '[)')
+)
+			  AND (
+				  $1::uuid IS NULL
+				  OR s.provider_id = $1
+			  )
+			  AND (
+				  $2::timestamptz IS NULL
+				  OR s.starts_at >= $2
+			  )
+			  AND (
+				  $3::timestamptz IS NULL
+				  OR s.starts_at < $3
+			  )
+			ORDER BY s.starts_at ASC
+			LIMIT $4
+			OFFSET $5
+		`
 
 	rows, err := r.db.Query(
 		ctx,
@@ -339,6 +364,12 @@ func (r *Repository) CountAvailableSlots(
               WHERE b.slot_id = s.id
                 AND b.status IN ('pending', 'confirmed')
           )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM provider_unavailable_periods up
+              WHERE up.provider_id = s.provider_id
+                AND tstzrange(up.starts_at, up.ends_at, '[)') && tstzrange(s.starts_at, s.ends_at, '[)')
+          )
           AND ($1::uuid IS NULL OR s.provider_id = $1)
           AND ($2::timestamptz IS NULL OR s.starts_at >= $2)
           AND ($3::timestamptz IS NULL OR s.starts_at < $3)
@@ -380,6 +411,12 @@ func (r *Repository) GetAvailableSlotByID(
 		WHERE s.id = $1
 		  AND s.status = 'open'
 		  AND s.starts_at > NOW()
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM provider_unavailable_periods up
+			WHERE up.provider_id = s.provider_id
+			  AND tstzrange(up.starts_at, up.ends_at, '[)') && tstzrange(s.starts_at, s.ends_at, '[)')
+		  )
 	`
 
 	var slot AvailableSlot
@@ -418,7 +455,7 @@ func (r *Repository) ListByCustomer(
 		FROM bookings
 		WHERE customer_id = $1
 		  AND ($2::varchar IS NULL OR status = $2)
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 		LIMIT $3
 		OFFSET $4
 	`
@@ -759,6 +796,23 @@ func (r *Repository) RescheduleByCustomer(
 
 	if alreadyBooked {
 		return nil, ErrSlotBooked
+	}
+
+	// The target slot may not sit inside a blocked provider window.
+	var rescheduleBlocked bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM availability_slots s
+			JOIN provider_unavailable_periods up ON up.provider_id = s.provider_id
+			WHERE s.id = $1
+			  AND tstzrange(up.starts_at, up.ends_at, '[)') && tstzrange(s.starts_at, s.ends_at, '[)')
+		)
+	`, newSlotID).Scan(&rescheduleBlocked); err != nil {
+		return nil, fmt.Errorf("check target slot unavailability: %w", err)
+	}
+	if rescheduleBlocked {
+		return nil, ErrSlotBlocked
 	}
 
 	// The move itself: same booking ID, same history, new slot.

@@ -2,10 +2,13 @@ package bookings
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/priyanshunaredi/slotforge/internal/logging"
 )
 
 func (h *Handler) RescheduleBooking(c *gin.Context) {
@@ -70,6 +73,11 @@ func (h *Handler) RescheduleBooking(c *gin.Context) {
 				"error": "availability slot is closed",
 			})
 
+		case errors.Is(err, ErrSlotBlocked):
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "availability slot falls in an unavailable period",
+			})
+
 		case errors.Is(err, ErrSlotBooked):
 			c.JSON(http.StatusConflict, gin.H{
 				"error": "availability slot is already booked",
@@ -88,5 +96,9 @@ func (h *Handler) RescheduleBooking(c *gin.Context) {
 		return
 	}
 
+	logging.From(c).Info("booking_rescheduled",
+		slog.String("booking_id", booking.ID.String()),
+		slog.String("new_slot_id", booking.SlotID.String()),
+	)
 	c.JSON(http.StatusOK, booking)
 }

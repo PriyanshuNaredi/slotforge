@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+	// Embed the tz database so time.LoadLocation works on hosts without
+	// zoneinfo (scratch containers, minimal Windows installs).
+	_ "time/tzdata"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -19,6 +22,7 @@ import (
 	"github.com/priyanshunaredi/slotforge/internal/config"
 	"github.com/priyanshunaredi/slotforge/internal/database"
 	"github.com/priyanshunaredi/slotforge/internal/health"
+	"github.com/priyanshunaredi/slotforge/internal/logging"
 	"github.com/priyanshunaredi/slotforge/internal/notifications"
 	"github.com/priyanshunaredi/slotforge/internal/providers"
 )
@@ -28,9 +32,12 @@ func main() {
 	// Production environments should inject these directly.
 	_ = godotenv.Load()
 
+	logger := logging.New()
+
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("configuration error: %v", err)
+		logger.Error("configuration error", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	startupCtx, cancel := context.WithTimeout(
@@ -44,7 +51,8 @@ func main() {
 		cfg.DatabaseURL,
 	)
 	if err != nil {
-		log.Fatalf("database initialization failed: %v", err)
+		logger.Error("database initialization failed", slog.Any("error", err))
+		os.Exit(1)
 	}
 	defer pool.Close()
 
@@ -52,7 +60,7 @@ func main() {
 	redisClient := cache.NewRedisClient(cfg.RedisAddr)
 	defer func() {
 		if err := redisClient.Close(); err != nil {
-			log.Printf("Redis client shutdown error: %v", err)
+			logger.Warn("redis client shutdown error", slog.Any("error", err))
 		}
 	}()
 
@@ -62,10 +70,10 @@ func main() {
 	)
 
 	if err := redisClient.Ping(redisCtx).Err(); err != nil {
-		log.Printf("WARNING: Redis unavailable: %v", err)
-		log.Println("Continuing without Redis. Cache operations will fail open.")
+		logger.Warn("redis unavailable; continuing without redis; cache operations fail open",
+			slog.Any("error", err))
 	} else {
-		log.Println("Redis connection established successfully")
+		logger.Info("redis connection established")
 	}
 
 	redisCancel()
@@ -77,7 +85,8 @@ func main() {
 		cfg.RefreshTokenTTL,
 	)
 	if err != nil {
-		log.Fatalf("token manager initialization failed: %v", err)
+		logger.Error("token manager initialization failed", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	authRepo := auth.NewRepository(pool)
@@ -99,10 +108,13 @@ func main() {
 	}
 
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
+	router.Use(logging.RequestID(), logging.SecurityHeaders(), logging.Access(logger), logging.Recovery(logger))
 
-	// Health endpoints.
-	health.RegisterRoutes(router, pool)
+	// Health endpoints. Redis is optional (fail-open), so readiness only
+	// reports its state and never fails because of it.
+	health.RegisterRoutes(router, pool, func(ctx context.Context) error {
+		return redisClient.Ping(ctx).Err()
+	})
 	providerRepo := providers.NewRepository(pool)
 	// providerService := providers.NewService(providerRepo)
 	providerService := providers.NewService(providerRepo, redisClient)
@@ -142,11 +154,12 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("SlotForge API listening on port %s", cfg.Port)
+		logger.Info("api listening", slog.String("port", cfg.Port))
 
 		if err := server.ListenAndServe(); err != nil &&
 			!errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server failed: %v", err)
+			logger.Error("server failed", slog.Any("error", err))
+			os.Exit(1)
 		}
 	}()
 
@@ -177,27 +190,27 @@ func main() {
 			},
 		)
 		if err != nil {
-			log.Fatalf("email worker configuration error: %v", err)
+			logger.Error("email worker configuration error", slog.Any("error", err))
+			os.Exit(1)
 		}
 
 		workerStarted = true
+		emailWorker.SetLogger(logger)
 
 		go func() {
 			defer close(workerDone)
 			emailWorker.Run(stopCtx)
 		}()
 
-		log.Printf(
-			"Email delivery worker started (batch=%d, poll=%s)",
-			cfg.EmailWorkerBatchSize,
-			cfg.EmailWorkerPollInterval,
+		logger.Info("email delivery worker started",
+			slog.Int("batch_size", cfg.EmailWorkerBatchSize),
+			slog.String("poll_interval", cfg.EmailWorkerPollInterval.String()),
 		)
 	} else if !cfg.EmailWorkerEnabled {
-		log.Println("Email delivery disabled: EMAIL_WORKER_ENABLED is false")
+		logger.Info("email delivery disabled", slog.String("reason", "EMAIL_WORKER_ENABLED is false"))
 	} else {
-		log.Println(
-			"Email delivery disabled: RESEND_API_KEY and EMAIL_FROM are not configured",
-		)
+		logger.Info("email delivery disabled",
+			slog.String("reason", "RESEND_API_KEY and EMAIL_FROM are not configured"))
 	}
 
 	<-stopCtx.Done()
@@ -209,7 +222,7 @@ func main() {
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("graceful shutdown failed: %v", err)
+		logger.Warn("graceful shutdown failed", slog.Any("error", err))
 	}
 
 	// stopCtx is cancelled as soon as the shutdown signal arrives, so the
@@ -220,7 +233,7 @@ func main() {
 		select {
 		case <-workerDone:
 		case <-time.After(5 * time.Second):
-			log.Println("email worker did not stop in time")
+			logger.Warn("email worker did not stop in time")
 		}
 	}
 }

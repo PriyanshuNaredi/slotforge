@@ -2,10 +2,13 @@ package auth
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/priyanshunaredi/slotforge/internal/logging"
 )
 
 type Handler struct {
@@ -80,7 +83,16 @@ func (h *Handler) Login(c *gin.Context) {
 	)
 
 	if err != nil {
+		if errors.Is(err, ErrTooManyAttempts) {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error": "too many login attempts; try again later",
+			})
+			return
+		}
+
 		if errors.Is(err, ErrInvalidCredentials) {
+			// Event log only: no email, password, or token is ever logged.
+			logging.From(c).Warn("auth_login_failed")
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "invalid email or password",
 			})
@@ -93,6 +105,10 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	logging.From(c).Info("auth_login_succeeded",
+		slog.String("user_id", response.User.ID.String()),
+		slog.String("role", response.User.Role),
+	)
 	c.JSON(http.StatusOK, response)
 }
 

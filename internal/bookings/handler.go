@@ -3,6 +3,7 @@ package bookings
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/priyanshunaredi/slotforge/internal/auth"
+	"github.com/priyanshunaredi/slotforge/internal/logging"
 )
 
 type BookingService interface {
@@ -119,7 +121,8 @@ func (h *Handler) CreateBooking(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 
 		case errors.Is(err, ErrSlotClosed),
-			errors.Is(err, ErrSlotBooked):
+			errors.Is(err, ErrSlotBooked),
+			errors.Is(err, ErrSlotBlocked):
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 
 		default:
@@ -130,6 +133,11 @@ func (h *Handler) CreateBooking(c *gin.Context) {
 		return
 	}
 
+	logging.From(c).Info("booking_created",
+		slog.String("booking_id", booking.ID.String()),
+		slog.String("slot_id", booking.SlotID.String()),
+		slog.String("customer_id", booking.CustomerID.String()),
+	)
 	c.JSON(http.StatusCreated, booking)
 }
 

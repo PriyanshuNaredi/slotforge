@@ -2,10 +2,13 @@ package bookings
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/priyanshunaredi/slotforge/internal/logging"
 )
 
 func (h *Handler) CancelBooking(c *gin.Context) {
@@ -58,5 +61,9 @@ func (h *Handler) CancelBooking(c *gin.Context) {
 		return
 	}
 
+	logging.From(c).Info("booking_cancelled",
+		slog.String("booking_id", booking.ID.String()),
+		slog.String("customer_id", booking.CustomerID.String()),
+	)
 	c.JSON(http.StatusOK, booking)
 }

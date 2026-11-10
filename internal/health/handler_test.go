@@ -3,9 +3,11 @@ package health
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,17 +15,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func newHealthRouter(pool *pgxpool.Pool) *gin.Engine {
+func newHealthRouter(pool *pgxpool.Pool, redis redisPinger) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	RegisterRoutes(router, pool)
+	RegisterRoutes(router, pool, redis)
 
 	return router
 }
 
 func TestHealthz(t *testing.T) {
-	router := newHealthRouter(nil)
+	router := newHealthRouter(nil, nil)
 
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/healthz", nil))
@@ -43,8 +45,11 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
-// TestReadyzWithDatabase verifies the readiness endpoint against the real
-// PostgreSQL instance. Requires DATABASE_URL.
+// TestReadyzWithDatabase verifies readiness against the real PostgreSQL
+// instance. Requires DATABASE_URL. The database may legitimately be in an
+// unmigrated state (fresh dev database), so the test asserts that the
+// reported checks are consistent with the status code rather than a
+// specific outcome.
 func TestReadyzWithDatabase(t *testing.T) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
@@ -61,27 +66,50 @@ func TestReadyzWithDatabase(t *testing.T) {
 
 	t.Cleanup(pool.Close)
 
-	router := newHealthRouter(pool)
+	router := newHealthRouter(pool, nil)
 
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
+	var body struct {
+		Status string            `json:"status"`
+		Checks map[string]string `json:"checks"`
 	}
-
-	var body map[string]string
 
 	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if body["status"] != "ready" {
-		t.Errorf("expected status ready, got %q", body["status"])
+	switch body.Status {
+	case "ready":
+		if response.Code != http.StatusOK {
+			t.Fatalf("status ready but code %d", response.Code)
+		}
+		if body.Checks["database"] != "connected" ||
+			body.Checks["schema"] != "ok" ||
+			body.Checks["migrations"] != "ok" {
+			t.Errorf("ready with unexpected checks: %v", body.Checks)
+		}
+	case "not_ready":
+		if response.Code != http.StatusServiceUnavailable {
+			t.Fatalf("status not_ready but code %d", response.Code)
+		}
+		failed := false
+		for _, key := range []string{"database", "schema", "migrations"} {
+			if body.Checks[key] != "ok" && body.Checks[key] != "connected" {
+				failed = true
+			}
+		}
+		if !failed {
+			t.Errorf("not_ready but no failed check: %v", body.Checks)
+		}
+	default:
+		t.Fatalf("unexpected status %q: %s", body.Status, response.Body.String())
 	}
 
-	if body["database"] != "connected" {
-		t.Errorf("expected database connected, got %q", body["database"])
+	// The response must never echo the connection string or credentials.
+	if strings.Contains(response.Body.String(), "@") || strings.Contains(response.Body.String(), "postgres://") {
+		t.Errorf("response leaks connection details: %s", response.Body.String())
 	}
 }
 
@@ -97,7 +125,7 @@ func TestReadyzWithUnavailableDatabase(t *testing.T) {
 
 	t.Cleanup(deadPool.Close)
 
-	router := newHealthRouter(deadPool)
+	router := newHealthRouter(deadPool, nil)
 
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/readyz", nil))
@@ -106,17 +134,94 @@ func TestReadyzWithUnavailableDatabase(t *testing.T) {
 		t.Fatalf("expected 503, got %d: %s", response.Code, response.Body.String())
 	}
 
-	var body map[string]string
+	var body struct {
+		Status string            `json:"status"`
+		Checks map[string]string `json:"checks"`
+	}
 
 	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if body["status"] != "not_ready" {
-		t.Errorf("expected status not_ready, got %q", body["status"])
+	if body.Status != "not_ready" {
+		t.Errorf("expected status not_ready, got %q", body.Status)
 	}
 
-	if body["error"] == "" {
-		t.Error("expected an error field on failure")
+	if body.Checks["database"] != "unavailable" {
+		t.Errorf("expected database unavailable, got %q", body.Checks["database"])
+	}
+}
+
+// TestReadyzRedisDegradedReported verifies a Redis outage is reported as
+// degraded (fail-open), independent of the database state.
+func TestReadyzRedisDegradedReported(t *testing.T) {
+	router := newHealthRouter(nil, func(ctx context.Context) error {
+		return errors.New("connection refused")
+	})
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+
+	// pool is nil so the ping fails — Redis alone must not change that,
+	// but the redis check must report degraded, not ok.
+	var body struct {
+		Status string            `json:"status"`
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if body.Checks["redis"] != "degraded" {
+		t.Errorf("expected redis degraded, got %q", body.Checks["redis"])
+	}
+}
+
+// TestReadyzRedisDisabled verifies the nil-pinger path.
+func TestReadyzRedisDisabled(t *testing.T) {
+	router := newHealthRouter(nil, nil)
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+
+	var body struct {
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if body.Checks["redis"] != "disabled" {
+		t.Errorf("expected redis disabled, got %q", body.Checks["redis"])
+	}
+}
+
+// TestReadyzWithLiveRedis verifies the healthy Redis path when REDIS_ADDR
+// points at a reachable instance.
+func TestReadyzWithLiveRedis(t *testing.T) {
+	addr := os.Getenv("REDIS_ADDR")
+	if addr == "" {
+		t.Skip("REDIS_ADDR is not set; skipping Redis integration test")
+	}
+
+	client := newTestRedisClient(addr)
+	t.Cleanup(func() { _ = client.Close() })
+
+	router := newHealthRouter(nil, func(ctx context.Context) error {
+		return client.Ping(ctx).Err()
+	})
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+
+	var body struct {
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if body.Checks["redis"] != "ok" {
+		t.Errorf("expected redis ok, got %q", body.Checks["redis"])
 	}
 }
