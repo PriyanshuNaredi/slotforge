@@ -44,5 +44,12 @@ export function useUnreadCount(): { count: number; refresh: () => void } {
     return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh);
   }, [refresh]);
 
+  // Server-side events (e.g. provider status changes) don't fire the local
+  // event, so poll quietly: cheap indexed count, slow cadence.
+  useEffect(() => {
+    const timer = window.setInterval(refresh, 60_000);
+    return () => window.clearInterval(timer);
+  }, [refresh]);
+
   return { count, refresh };
 }
