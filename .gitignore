@@ -24,3 +24,10 @@ npm-debug.log*
 .zcode/
 .claude/
 .playwright-mcp/
+.codex/
+.impeccable/
+
+
+# Playwright artifacts
+frontend/test-results/
+frontend/playwright-report/
