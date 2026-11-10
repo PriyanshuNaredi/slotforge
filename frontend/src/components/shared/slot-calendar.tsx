@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { viewerTimezone } from "@/lib/format";
+import { CALENDAR_LEGEND } from "@/lib/calendar-events";
 
 export interface SlotCalendarProps {
   events: EventInput[];
@@ -90,7 +91,7 @@ export function SlotCalendar({
   }
 
   if (loading && events.length === 0) {
-    return <Skeleton className="h-96 w-full rounded-xl" />;
+    return <Skeleton className="h-96 w-full rounded-lg" />;
   }
 
   if (!loading && events.length === 0) {
@@ -119,6 +120,19 @@ export function SlotCalendar({
       className={`fc-wrapper ${loading ? "opacity-60 transition-opacity" : ""}`}
       aria-label={ariaLabel}
     >
+      {/* Event-color legend — meanings were previously click-to-discover. */}
+      <ul className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-rule pb-3">
+        {CALENDAR_LEGEND.map((item) => (
+          <li key={item.label} className="flex items-center gap-1.5 text-xs text-ink-soft">
+            <span
+              className="size-2 rounded-[2px]"
+              style={{ backgroundColor: item.color }}
+              aria-hidden="true"
+            />
+            {item.label}
+          </li>
+        ))}
+      </ul>
       <FullCalendar
         plugins={plugins}
         initialView={isMobile ? "listWeek" : desktopInitialView}
@@ -129,6 +143,9 @@ export function SlotCalendar({
           right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
         }}
         events={events}
+        // The classic theme hashes its class names; this stable hook is what
+        // the CSS targets for event-chip ellipsis (see globals.css).
+        eventClass="sf-event"
         selectable={selectable}
         selectMirror
         unselectAuto

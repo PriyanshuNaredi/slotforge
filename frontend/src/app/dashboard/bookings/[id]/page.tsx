@@ -8,7 +8,6 @@ import {
   CalendarClockIcon,
   CalendarX2Icon,
   FileQuestionIcon,
-  UserIcon,
 } from "lucide-react";
 
 import { cancelBooking, getAvailableSlot, getBooking } from "@/lib/api/endpoints";
@@ -66,7 +65,7 @@ export default function BookingDetailPage() {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <Skeleton className="h-8 w-32" />
-        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-lg" />
       </div>
     );
   }
@@ -105,12 +104,11 @@ export default function BookingDetailPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {slotData?.provider_name ?? "Booking"}
+          <h1 className="font-display text-[1.65rem] font-semibold leading-tight tracking-tight">
+            {slotData?.provider_name ?? "Appointment"}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Booked {formatRelative(new Date(data.created_at))} · #
-            {data.id.slice(0, 8)}
+          <p className="mt-1 text-sm text-ink-soft">
+            Booked {formatRelative(new Date(data.created_at))}
           </p>
         </div>
         <StatusBadge status={data.status} />
@@ -122,44 +120,35 @@ export default function BookingDetailPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {slotData ? (
-            <>
-              <div className="flex items-start gap-3">
-                <CalendarClockIcon
-                  className="mt-0.5 size-4 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <div>
-                  <p className="text-sm font-medium">
-                    {formatFullDate(new Date(slotData.starts_at), slotData.timezone)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatTime(new Date(slotData.starts_at), slotData.timezone)} –{" "}
-                    {formatTime(new Date(slotData.ends_at), slotData.timezone)} ·{" "}
-                    {formatDuration(slotData.starts_at, slotData.ends_at)}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground/80">
-                    Provider timezone: {slotData.timezone} (
-                    {timeZoneAbbr(slotData.timezone, new Date(slotData.starts_at))})
-                  </p>
-                </div>
+            <div className="flex items-start gap-3">
+              <CalendarClockIcon
+                className="mt-0.5 size-4 text-coral-strong"
+                aria-hidden="true"
+              />
+              <div>
+                <p className="font-display text-lg font-semibold tracking-tight">
+                  {formatFullDate(new Date(slotData.starts_at), slotData.timezone)}
+                </p>
+                <p className="mt-0.5 font-mono text-sm tabular-nums text-ink-soft">
+                  {formatTime(new Date(slotData.starts_at), slotData.timezone)} –{" "}
+                  {formatTime(new Date(slotData.ends_at), slotData.timezone)} ·{" "}
+                  {formatDuration(slotData.starts_at, slotData.ends_at)}
+                </p>
+                <p className="mt-1 text-xs text-ink-soft">
+                  Provider timezone: {slotData.timezone} (
+                  {timeZoneAbbr(slotData.timezone, new Date(slotData.starts_at))})
+                </p>
               </div>
-              <div className="flex items-start gap-3">
-                <UserIcon className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" />
-                <div>
-                  <p className="text-sm font-medium">{slotData.provider_name}</p>
-                  <p className="text-xs text-muted-foreground">Provider on SlotForge</p>
-                </div>
-              </div>
-            </>
+            </div>
           ) : slot.loading ? (
             <div className="space-y-2">
               <Skeleton className="h-4 w-56" />
               <Skeleton className="h-4 w-40" />
             </div>
           ) : (
-            <p className="rounded-lg border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+            <p className="rounded-sm border border-rule bg-muted/40 px-4 py-3 text-sm text-ink-soft">
               The time details for this booking aren&apos;t available anymore —
-              the slot has closed or is in the past.
+              the slot has closed or is in the past. The booking itself stands.
             </p>
           )}
 
@@ -167,7 +156,7 @@ export default function BookingDetailPage() {
 
           <div>
             <p className="text-sm font-medium">Your notes</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-ink-soft">
               {data.notes?.trim() ? data.notes : "No notes added."}
             </p>
           </div>
@@ -175,9 +164,9 @@ export default function BookingDetailPage() {
           <Separator />
 
           <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-            <dt className="text-muted-foreground">Booking ID</dt>
-            <dd className="font-mono text-xs leading-6">{data.id}</dd>
-            <dt className="text-muted-foreground">Last updated</dt>
+            <dt className="text-ink-soft">Booking ref</dt>
+            <dd className="font-mono text-xs leading-6">{data.id.slice(0, 8)}</dd>
+            <dt className="text-ink-soft">Last updated</dt>
             <dd>{formatRelative(new Date(data.updated_at))}</dd>
           </dl>
         </CardContent>

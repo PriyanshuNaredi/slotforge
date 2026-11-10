@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { createElement, useState } from "react";
 import {
   BellIcon,
   BellOffIcon,
+  CalendarCheckIcon,
+  CalendarClockIcon,
+  CalendarX2Icon,
   CheckCheckIcon,
+  CheckCircle2Icon,
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  BellRingIcon,
+  UserXIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+
+import type { LucideIcon } from "lucide-react";
 
 import { listNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/api/endpoints";
 import type { Notification } from "@/lib/api/types";
@@ -25,6 +31,20 @@ import { notifyNotificationsChanged } from "@/hooks/use-unread-count";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
+
+/** Per-event icons — the bell alone made every row read identical. */
+const EVENT_ICONS: Record<string, LucideIcon> = {
+  booking_confirmed: CalendarCheckIcon,
+  booking_cancelled: CalendarX2Icon,
+  booking_cancelled_by_provider: CalendarX2Icon,
+  booking_rescheduled: CalendarClockIcon,
+  booking_completed: CheckCircle2Icon,
+  booking_no_show: UserXIcon,
+};
+
+function eventIcon(type: string): LucideIcon {
+  return EVENT_ICONS[type] ?? BellIcon;
+}
 
 /**
  * Shared notifications feed for customers and providers — the backend
@@ -121,7 +141,7 @@ export function NotificationsContent({
       ) : list.loading && notifications.length === 0 ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-20 w-full rounded-xl" />
+            <Skeleton key={index} className="h-20 w-full rounded-lg" />
           ))}
         </div>
       ) : !list.loading && notifications.length === 0 ? (
@@ -133,7 +153,7 @@ export function NotificationsContent({
       ) : (
         <>
           <ul
-            className={`divide-y rounded-xl border bg-card ${
+            className={`divide-y rounded-lg border border-rule bg-card ${
               list.loading ? "opacity-60 transition-opacity" : ""
             }`}
           >
@@ -149,7 +169,7 @@ export function NotificationsContent({
 
           {pageCount > 1 ? (
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground" aria-live="polite">
+              <p className="text-sm text-ink-soft" aria-live="polite">
                 Page {page + 1} of {pageCount} · {total} notifications
               </p>
               <div className="flex gap-2">
@@ -194,22 +214,20 @@ function NotificationRow({
   return (
     <li
       className={cn(
-        "flex items-start gap-3 px-4 py-4 sm:px-5",
-        unread && "bg-brand-soft/40",
+        "flex items-start gap-3.5 px-4 py-4 sm:px-5",
+        unread && "bg-coral-wash/40",
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
-          unread ? "bg-brand text-brand-foreground" : "bg-muted text-muted-foreground",
+          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-sm",
+          unread
+            ? "bg-coral-wash text-coral-strong"
+            : "bg-muted text-ink-soft",
         )}
       >
-        {unread ? (
-          <BellRingIcon className="size-4" />
-        ) : (
-          <BellIcon className="size-4" />
-        )}
+        {createElement(eventIcon(notification.type), { className: "size-4" })}
       </span>
 
       <div className="min-w-0 flex-1">
@@ -218,15 +236,13 @@ function NotificationRow({
             {notification.title}
           </p>
           {unread ? (
-            <span
-              className="inline-flex items-center rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-foreground"
-            >
+            <span className="inline-flex items-center rounded-sm bg-brand px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-foreground">
               New
             </span>
           ) : null}
         </div>
-        <p className="mt-0.5 text-sm text-muted-foreground">{notification.message}</p>
-        <p className="mt-1 text-xs text-muted-foreground/80">
+        <p className="mt-0.5 text-sm text-ink-soft">{notification.message}</p>
+        <p className="mt-1 text-xs text-ink-soft">
           {formatRelative(new Date(notification.created_at))} ·{" "}
           {new Date(notification.created_at).toLocaleString("en-US", {
             month: "short",

@@ -8,16 +8,14 @@ import {
   FileQuestionIcon,
   GlobeIcon,
   ServerCrashIcon,
-  UserRoundIcon,
 } from "lucide-react";
 
 import { getPublicProvider } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
 import type { PublicProvider } from "@/lib/api/types";
-import { timeZoneAbbr } from "@/lib/format";
+import { formatDate, timeZoneAbbr } from "@/lib/format";
 import { EmptyState, ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsyncData } from "@/hooks/use-async-data";
@@ -64,7 +62,7 @@ export function ProviderProfileContent() {
           }
         />
       ) : profile.loading ? (
-        <div className="rounded-xl border bg-card p-6">
+        <div className="rounded-lg border border-rule bg-card p-6">
           <div className="flex items-center gap-3">
             <Skeleton className="size-12 rounded-full" />
             <Skeleton className="h-5 w-40" />
@@ -85,27 +83,22 @@ export function ProviderProfileContent() {
           }
         />
       ) : profile.data?.provider ? (
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-3">
-              <span className="flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand-strong">
-                <UserRoundIcon className="size-6" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <h1 className="truncate text-lg font-semibold">
-                  {profile.data.provider.display_name}
-                </h1>
-                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <GlobeIcon className="size-3.5 shrink-0" aria-hidden="true" />
-                  {profile.data.provider.timezone} ({timeZoneAbbr(profile.data.provider.timezone)})
-                </p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <div className="rounded-lg border border-rule bg-card">
+          <div className="border-b border-rule px-6 pb-5 pt-6">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-balance">
+              {profile.data.provider.display_name}
+            </h1>
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-soft">
+              <GlobeIcon className="size-3.5 shrink-0" aria-hidden="true" />
+              {profile.data.provider.timezone} ({timeZoneAbbr(profile.data.provider.timezone)})
+            </p>
+          </div>
+          <div className="space-y-6 px-6 py-6">
             <div>
-              <h2 className="text-sm font-medium">About</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-coral-strong">
+                About
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-ink-soft">
                 {profile.data.provider.bio?.trim() ||
                   "This provider has not added a bio yet."}
               </p>
@@ -114,9 +107,9 @@ export function ProviderProfileContent() {
             <Separator />
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-ink-soft">
                 On SlotForge since{" "}
-                {new Date(profile.data.provider.created_at).toLocaleDateString()}
+                {formatDate(new Date(profile.data.provider.created_at))}
               </p>
               <Button asChild>
                 <Link href={`/dashboard/discover?provider=${profile.data.provider.id}`}>
@@ -125,8 +118,8 @@ export function ProviderProfileContent() {
                 </Link>
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : null}
     </div>
   );

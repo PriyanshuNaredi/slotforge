@@ -5,27 +5,39 @@ import { bookingStatusMeta } from "./booking-status";
 
 /**
  * Map backend rows to FullCalendar events. FullCalendar v7's classic theme
- * derives event styling from `color` (solid accents: dots, 15% tinted
- * backgrounds) and `contrastColor` (text) — no class hooks exist.
+ * renders timeGrid events as solid `color` blocks with `contrastColor` text,
+ * and month-view dots in solid `color`. Every pair here is checked for
+ * 4.5:1 text contrast — the old table set `contrast` equal to `color` and
+ * rendered unreadable events.
  */
 
 interface EventColors {
-  /** Solid accent: dot color and tinted background base. */
+  /** Solid accent: event background and month-dot color. */
   color: string;
-  /** Text on the tinted background. */
+  /** Text on the solid background. */
   contrast: string;
 }
 
-/** SlotForge palette per booking/slot state. */
+/** SlotForge palette per booking/slot state (from the design tokens). */
 export const EVENT_COLORS: Record<string, EventColors> = {
-  "slot:open": { color: "#F17C69", contrast: "#172B4D" },
-  "slot:closed": { color: "#9FB2BD", contrast: "#44597E" },
-  confirmed: { color: "#344B43", contrast: "#344B43" },
-  completed: { color: "#172B4D", contrast: "#172B4D" },
-  pending: { color: "#D97706", contrast: "#7C5410" },
-  cancelled: { color: "#B6C2CB", contrast: "#67798F" },
-  no_show: { color: "#B3362B", contrast: "#8C3A30" },
+  "slot:open": { color: "#bc3e1b", contrast: "#fff8f2" },
+  "slot:closed": { color: "#9fb2bd", contrast: "#1f3049" },
+  confirmed: { color: "#2f5d46", contrast: "#f2eee3" },
+  completed: { color: "#41597a", contrast: "#f2eee3" },
+  pending: { color: "#9a6110", contrast: "#fff8f2" },
+  cancelled: { color: "#b6c2cb", contrast: "#1f3049" },
+  no_show: { color: "#b3362b", contrast: "#fff8f2" },
 };
+
+/** Legend rows for the calendar toolbar, in display order. */
+export const CALENDAR_LEGEND: { label: string; color: string }[] = [
+  { label: "Open slot", color: EVENT_COLORS["slot:open"].color },
+  { label: "Confirmed", color: EVENT_COLORS.confirmed.color },
+  { label: "Pending", color: EVENT_COLORS.pending.color },
+  { label: "Completed", color: EVENT_COLORS.completed.color },
+  { label: "Cancelled", color: EVENT_COLORS.cancelled.color },
+  { label: "No-show", color: EVENT_COLORS.no_show.color },
+];
 
 function withColors(event: EventInput, colors: EventColors): EventInput {
   return {
@@ -59,6 +71,11 @@ const PROVIDER_STATUS_KEYS: Record<string, string> = {
   no_show: "no_show",
 };
 
+/** Full emails truncate to "custome…" in event chips — show the local part. */
+function shortName(email: string): string {
+  return email.split("@")[0] || email;
+}
+
 export function providerBookingEvents(bookings: ProviderBooking[]): EventInput[] {
   return bookings
     .filter((booking) => PROVIDER_STATUS_KEYS[booking.status])
@@ -66,7 +83,7 @@ export function providerBookingEvents(bookings: ProviderBooking[]): EventInput[]
       withColors(
         {
           id: `booking:${booking.id}`,
-          title: booking.customer_email,
+          title: shortName(booking.customer_email),
           start: booking.slot_starts_at,
           end: booking.slot_ends_at,
           extendedProps: { kind: "booking" as const, refId: booking.id, status: booking.status },

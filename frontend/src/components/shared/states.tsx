@@ -10,20 +10,21 @@ interface StateProps {
   className?: string;
 }
 
+/** Compact, purposeful states — a ruled note, not a large empty container. */
 export function EmptyState({ icon: Icon, title, description, action, className }: StateProps) {
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border border-dashed bg-card/50 px-6 py-14 text-center",
+        "flex flex-col items-start justify-center gap-1 rounded-lg border border-rule bg-card/60 px-5 py-7 text-left sm:px-6",
         className,
       )}
     >
-      <div className="flex size-11 items-center justify-center rounded-full bg-muted">
-        <Icon className="size-5 text-muted-foreground" aria-hidden="true" />
+      <div className="flex items-center gap-2.5">
+        <Icon className="size-4 text-coral-strong" aria-hidden="true" />
+        <h3 className="text-sm font-semibold">{title}</h3>
       </div>
-      <h3 className="mt-4 text-sm font-semibold">{title}</h3>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
-      {action ? <div className="mt-5">{action}</div> : null}
+      <p className="max-w-md text-sm text-ink-soft">{description}</p>
+      {action ? <div className="mt-3">{action}</div> : null}
     </div>
   );
 }
@@ -33,16 +34,16 @@ export function ErrorState({ icon: Icon, title, description, action, className }
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border bg-card px-6 py-14 text-center",
+        "flex flex-col items-start justify-center gap-1 rounded-lg border border-destructive/30 bg-destructive/5 px-5 py-7 text-left sm:px-6",
         className,
       )}
     >
-      <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10">
-        <Icon className="size-5 text-destructive" aria-hidden="true" />
+      <div className="flex items-center gap-2.5">
+        <Icon className="size-4 text-destructive" aria-hidden="true" />
+        <h3 className="text-sm font-semibold">{title}</h3>
       </div>
-      <h3 className="mt-4 text-sm font-semibold">{title}</h3>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
-      {action ? <div className="mt-5">{action}</div> : null}
+      <p className="max-w-md text-sm text-ink-soft">{description}</p>
+      {action ? <div className="mt-3">{action}</div> : null}
     </div>
   );
 }

@@ -40,13 +40,13 @@ function makeProviderBooking(overrides: Partial<ProviderBooking> = {}): Provider
 describe("providerSlotEvents", () => {
   it("marks open slots with the ev-open treatment", () => {
     const events = providerSlotEvents([makeSlot()]);
-    expect(events[0]?.color).toBe("#F17C69");
+    expect(events[0]?.color).toBe("#bc3e1b");
     expect(events[0]?.title).toBe("Open slot");
   });
 
   it("marks closed slots with the ev-closed treatment", () => {
     const events = providerSlotEvents([makeSlot({ status: "closed" })]);
-    expect(events[0]?.color).toBe("#9FB2BD");
+    expect(events[0]?.color).toBe("#9fb2bd");
     expect(events[0]?.title).toBe("Closed slot");
   });
 
@@ -63,17 +63,17 @@ describe("providerBookingEvents", () => {
       statuses.map((status) => makeProviderBooking({ status })),
     );
     expect(events.map((event) => event.color)).toEqual([
-      "#344B43", // confirmed
-      "#172B4D", // completed
-      "#D97706", // pending
-      "#B6C2CB", // cancelled
-      "#B3362B", // no_show
+      "#2f5d46", // confirmed
+      "#41597a", // completed
+      "#9a6110", // pending
+      "#b6c2cb", // cancelled
+      "#b3362b", // no_show
     ]);
   });
 
-  it("shows the customer email as the title", () => {
+  it("shows the customer email's local part as the title (full emails truncate)", () => {
     const events = providerBookingEvents([makeProviderBooking()]);
-    expect(events[0]?.title).toBe("customer@example.com");
+    expect(events[0]?.title).toBe("customer");
   });
 });
 
@@ -105,7 +105,7 @@ describe("customerBookingEvents", () => {
     const events = customerBookingEvents([makeBooking()], hydrated);
     expect(events[0]?.title).toBe("Dr. Demo");
     expect(events[0]?.start).toBe("2026-11-10T09:00:00-05:00");
-    expect(events[0]?.color).toBe("#344B43");
+    expect(events[0]?.color).toBe("#2f5d46");
   });
 
   it("skips bookings whose slot details are no longer published", () => {

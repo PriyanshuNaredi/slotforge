@@ -80,9 +80,9 @@ export function MonthCalendar({
   const today = todayIso();
 
   return (
-    <div className={cn("rounded-xl border bg-card p-4", className)}>
+    <div className={cn("rounded-lg border border-rule bg-card p-4", className)}>
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold" aria-live="polite">
+        <h2 className="font-display text-base font-semibold tracking-tight" aria-live="polite">
           {monthLabel}
         </h2>
         <div className="flex gap-1">
@@ -107,7 +107,7 @@ export function MonthCalendar({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted-foreground">
+      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-ink-soft">
         {WEEKDAYS.map((weekday) => (
           <div key={weekday} className="py-1">
             {weekday}
@@ -123,6 +123,8 @@ export function MonthCalendar({
           const dayNumber = Number(date.slice(8, 10));
           const isSelected = date === selected;
           const isToday = date === today;
+          // Past days read dimmer so bookable days stand out at a glance.
+          const isPast = date < today;
 
           return (
             <button
@@ -132,13 +134,14 @@ export function MonthCalendar({
               aria-label={`${new Date(`${date}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${dayInfo ? `, ${dayInfo.count} slot${dayInfo.count === 1 ? "" : "s"}` : ""}`}
               onClick={() => onSelect(date)}
               className={cn(
-                "relative flex h-11 flex-col items-center justify-center rounded-md text-sm transition-colors cursor-pointer",
+                "relative flex h-11 flex-col items-center justify-center rounded-sm text-sm transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-coral",
                 isSelected
                   ? "bg-primary text-primary-foreground font-semibold"
                   : dayInfo
-                    ? "bg-brand-soft/70 text-foreground hover:bg-brand-soft"
+                    ? "bg-coral-wash/70 text-ink hover:bg-coral-wash"
                     : "hover:bg-accent",
-                !isSelected && isToday && "ring-1 ring-inset ring-brand/50",
+                !isSelected && isToday && "ring-1 ring-inset ring-coral/60",
+                !isSelected && isPast && "opacity-55",
               )}
             >
               {dayNumber}
@@ -150,8 +153,8 @@ export function MonthCalendar({
                     isSelected
                       ? "bg-primary-foreground"
                       : dayInfo.allClosed
-                        ? "bg-neutral-400"
-                        : "bg-brand",
+                        ? "bg-rule-strong"
+                        : "bg-coral",
                   )}
                 />
               ) : null}

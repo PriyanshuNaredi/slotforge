@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Besley, Geist_Mono } from "next/font/google";
 
 import { Toaster } from "@/components/shared/toaster";
 import { SessionProvider } from "@/components/providers/session-provider";
 
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin"],
+});
+
+const besley = Besley({
+  variable: "--font-besley",
   subsets: ["latin"],
 });
 
@@ -33,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans min-h-svh`}
+        className={`${archivo.variable} ${besley.variable} ${geistMono.variable} font-sans min-h-svh`}
       >
         <SessionProvider>{children}</SessionProvider>
         <Toaster />

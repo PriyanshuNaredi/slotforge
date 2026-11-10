@@ -146,7 +146,7 @@ export function ProvidersDirectory() {
       ) : list.loading && providers.length === 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="rounded-xl border bg-card p-5">
+            <div key={index} className="rounded-lg border border-rule bg-card p-5">
               <Skeleton className="h-4 w-32" />
               <Skeleton className="mt-3 h-3 w-full" />
               <Skeleton className="mt-2 h-3 w-2/3" />
@@ -175,7 +175,7 @@ export function ProvidersDirectory() {
 
           {pageCount > 1 ? (
             <div className="flex items-center justify-between pt-2">
-              <p className="text-sm text-muted-foreground" aria-live="polite">
+              <p className="text-sm text-ink-soft" aria-live="polite">
                 Page {page + 1} of {pageCount} · {total} providers
               </p>
               <div className="flex gap-2">

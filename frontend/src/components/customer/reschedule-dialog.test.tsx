@@ -80,13 +80,13 @@ describe("RescheduleDialog", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Jan 22/ })).toBeDefined();
+      expect(screen.getByRole("radio", { name: /Jan 22/ })).toBeDefined();
     });
     expect(searchAvailableSlots).toHaveBeenCalledWith(
       expect.objectContaining({ provider_id: "p1" }),
     );
     // The current slot is filtered out of the replacement options.
-    expect(screen.queryByRole("button", { name: /Jan 15/ })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /Jan 15/ })).toBeNull();
   });
 
   it("shows current vs proposed time and reschedules on confirm", async () => {
@@ -104,7 +104,7 @@ describe("RescheduleDialog", () => {
       />,
     );
 
-    const pick = await screen.findByRole("button", { name: /Jan 20/ });
+    const pick = await screen.findByRole("radio", { name: /Jan 20/ });
     await user.click(pick);
 
     // Comparison view: both times visible side by side.
@@ -137,7 +137,7 @@ describe("RescheduleDialog", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("button", { name: /Jan 20/ }));
+    await user.click(await screen.findByRole("radio", { name: /Jan 20/ }));
     await user.click(screen.getByText("Confirm reschedule"));
 
     await waitFor(() => {
@@ -146,7 +146,7 @@ describe("RescheduleDialog", () => {
       ).toBeDefined();
     });
     // Back on the selection step with refreshed options.
-    expect(screen.getByRole("button", { name: /Jan 20/ })).toBeDefined();
+    expect(screen.getByRole("radio", { name: /Jan 20/ })).toBeDefined();
     expect(searchAvailableSlots).toHaveBeenCalledTimes(2);
   });
 

@@ -60,7 +60,7 @@ export default function CustomerCalendarPage() {
       />
 
       {unplaced > 0 ? (
-        <p className="rounded-lg border border-dashed bg-card/60 px-4 py-2.5 text-sm text-muted-foreground">
+        <p className="rounded-md border border-rule bg-card/60 px-4 py-2.5 text-sm text-ink-soft">
           {unplaced} older appointment{unplaced === 1 ? " is" : "s are"} not shown —
           their slot details are no longer published. See{" "}
           <Link href="/dashboard/bookings" className="font-medium underline underline-offset-4">
@@ -70,7 +70,7 @@ export default function CustomerCalendarPage() {
         </p>
       ) : null}
 
-      <div className="rounded-xl border bg-card p-4 shadow-xs">
+      <div className="rounded-lg border border-rule bg-card p-4">
         <SlotCalendar
           events={events}
           loading={list.loading}

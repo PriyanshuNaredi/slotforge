@@ -26,12 +26,12 @@ export function SiteNav() {
       >
         <Logo />
 
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-6 md:flex">
           {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
             >
               {link.label}
             </a>
@@ -59,7 +59,7 @@ export function SiteNav() {
 
         <button
           type="button"
-          className="inline-flex size-9 items-center justify-center rounded-md hover:bg-accent md:hidden"
+          className="inline-flex size-9 items-center justify-center rounded-md hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral md:hidden"
           aria-expanded={open}
           aria-label={open ? "Close menu" : "Open menu"}
           onClick={() => setOpen((value) => !value)}
@@ -69,20 +69,20 @@ export function SiteNav() {
       </nav>
 
       {open ? (
-        <div className="border-t border-border/70 bg-background px-4 py-3 md:hidden">
-          <div className="flex flex-col gap-1">
+        <div className="border-t border-rule bg-cream px-4 py-3 md:hidden">
+          <div className="flex flex-col">
             {links.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="border-b border-rule py-2.5 text-sm text-ink-soft last:border-b-0 hover:text-ink"
               >
                 {link.label}
               </a>
             ))}
           </div>
-          <div className="mt-3 flex flex-col gap-2 border-t border-border/70 pt-3">
+          <div className="mt-3 flex flex-col gap-2 border-t border-rule pt-3">
             {user ? (
               <Button asChild variant="outline" size="sm">
                 <Link href={user.role === "provider" ? "/provider" : "/dashboard"}>

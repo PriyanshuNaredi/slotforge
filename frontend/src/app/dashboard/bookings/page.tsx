@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function CustomerBookingsPage() {
   return (
-    <Suspense fallback={<Skeleton className="mx-auto h-96 max-w-4xl rounded-xl" />}>
+    <Suspense fallback={<Skeleton className="mx-auto h-96 max-w-4xl rounded-lg" />}>
       <CustomerBookingsContent />
     </Suspense>
   );

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function DiscoverPage() {
   return (
-    <Suspense fallback={<Skeleton className="mx-auto h-96 max-w-5xl rounded-xl" />}>
+    <Suspense fallback={<Skeleton className="mx-auto h-96 max-w-5xl rounded-lg" />}>
       <DiscoverContent />
     </Suspense>
   );

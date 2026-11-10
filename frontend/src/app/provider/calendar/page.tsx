@@ -138,7 +138,7 @@ export default function ProviderCalendarPage() {
         title="Calendar"
         description={
           profile
-            ? `Availability and bookings in your timezone: ${timezone} (${timeZoneAbbr(timezone)}) · drag on the grid to publish a slot`
+            ? `Availability and bookings in your timezone: ${timezone} (${timeZoneAbbr(timezone)}) · publish by dragging on the grid, or with “New slot”`
             : "Complete your profile to publish availability."
         }
         actions={
@@ -183,7 +183,7 @@ export default function ProviderCalendarPage() {
           }
         />
       ) : (
-        <div className="rounded-xl border bg-card p-4 shadow-xs">
+        <div className="rounded-lg border border-rule bg-card p-4">
           <SlotCalendar
             events={events}
             loading={eventsLoading}
@@ -211,16 +211,16 @@ export default function ProviderCalendarPage() {
                   {slotDetail.status === "open" ? "Open slot" : "Closed slot"}
                   <span
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
+                      "inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset",
                       slotDetail.status === "open"
-                        ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
-                        : "bg-neutral-100 text-neutral-600 ring-neutral-500/20",
+                        ? "bg-success-soft text-success ring-success/25"
+                        : "bg-muted text-ink-soft ring-rule-strong",
                     )}
                   >
                     <span
                       className={cn(
-                        "size-1.5 rounded-full",
-                        slotDetail.status === "open" ? "bg-emerald-500" : "bg-neutral-400",
+                        "size-1.5 rounded-[1px]",
+                        slotDetail.status === "open" ? "bg-success" : "bg-rule-strong",
                       )}
                       aria-hidden="true"
                     />
@@ -245,7 +245,7 @@ export default function ProviderCalendarPage() {
                   ({timeZoneAbbr(timezone)})
                 </DialogDescription>
               </DialogHeader>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-ink-soft">
                 {slotDetail.status === "open"
                   ? "Customers can book this slot from public search."
                   : "This slot no longer appears in public search."}

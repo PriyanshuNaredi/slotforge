@@ -96,8 +96,8 @@ export default function ProviderBookingsPage() {
         description="Every appointment customers have made with you."
       />
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Filters — status tabs and the date range kept as two visual groups */}
+      <div className="space-y-3">
         <Tabs
           value={filters.status}
           onValueChange={(value) => {
@@ -113,7 +113,8 @@ export default function ProviderBookingsPage() {
             ))}
           </TabsList>
         </Tabs>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 border-t border-rule pt-3">
+          <span className="text-xs font-medium text-ink-soft">Between</span>
           <Input
             type="date"
             aria-label="From date"
@@ -124,7 +125,7 @@ export default function ProviderBookingsPage() {
               setFilters((current) => ({ ...current, from: event.target.value }));
             }}
           />
-          <span className="text-xs text-muted-foreground">to</span>
+          <span className="text-xs text-ink-soft">and</span>
           <Input
             type="date"
             aria-label="To date"
@@ -152,7 +153,7 @@ export default function ProviderBookingsPage() {
       ) : list.loading && bookings.length === 0 ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-20 w-full rounded-xl" />
+            <Skeleton key={index} className="h-20 w-full rounded-lg" />
           ))}
         </div>
       ) : !list.loading && bookings.length === 0 ? (
@@ -164,7 +165,7 @@ export default function ProviderBookingsPage() {
       ) : (
         <>
           <ul
-            className={`divide-y rounded-xl border bg-card ${
+            className={`divide-y rounded-lg border border-rule bg-card ${
               list.loading ? "opacity-60 transition-opacity" : ""
             }`}
           >
@@ -175,7 +176,7 @@ export default function ProviderBookingsPage() {
                     <p className="truncate text-sm font-medium">{booking.customer_email}</p>
                     <StatusBadge status={booking.status} />
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 font-mono text-sm tabular-nums text-ink-soft">
                     {formatSlotRange(booking.slot_starts_at, booking.slot_ends_at)} ·{" "}
                     {formatDuration(booking.slot_starts_at, booking.slot_ends_at)}
                   </p>
@@ -196,7 +197,7 @@ export default function ProviderBookingsPage() {
 
           {pageCount > 1 ? (
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground" aria-live="polite">
+              <p className="text-sm text-ink-soft" aria-live="polite">
                 Page {page + 1} of {pageCount} · {total} bookings
               </p>
               <div className="flex gap-2">

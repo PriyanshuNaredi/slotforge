@@ -115,10 +115,20 @@ describe("SlotCalendar", () => {
       />,
     );
 
+    // The legend row also says "Open slot" but is not an event — event chips
+    // render inside calendar table cells, a tick later. Keep retrying until
+    // the real chip exists.
+    let eventEl: HTMLElement | undefined;
     await waitFor(() => {
-      expect(screen.getAllByText("Open slot").length).toBeGreaterThan(0);
+      // The legend row also says "Open slot" but is not an event. The classic
+      // theme hashes every class name, so scope by structure: the event chip
+      // never lives inside an <li>.
+      eventEl = screen
+        .getAllByText("Open slot")
+        .find((el) => el.closest("li") === null);
+      expect(eventEl).toBeDefined();
     });
-    await user.click(screen.getAllByText("Open slot")[0]!);
+    await user.click(eventEl!);
 
     await waitFor(() => {
       expect(onEventClick).toHaveBeenCalledWith("slot:1", "slot");

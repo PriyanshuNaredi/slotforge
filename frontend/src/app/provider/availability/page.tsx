@@ -159,8 +159,8 @@ export default function AvailabilityPage() {
         />
       ) : slots.loading && allSlots.length === 0 ? (
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          <Skeleton className="h-80 rounded-xl" />
-          <Skeleton className="h-80 rounded-xl" />
+          <Skeleton className="h-80 rounded-lg" />
+          <Skeleton className="h-80 rounded-lg" />
         </div>
       ) : (
         <div className="grid items-start gap-4 lg:grid-cols-[320px_1fr]">
@@ -170,7 +170,7 @@ export default function AvailabilityPage() {
             onSelect={setSelectedDate}
           />
 
-          <div className="rounded-xl border bg-card">
+          <div className="rounded-lg border border-rule bg-card">
             <div className="flex items-center justify-between border-b px-5 py-3.5">
               <h2 className="text-sm font-semibold">
                 {new Date(`${selectedDate}T12:00:00`).toLocaleDateString("en-US", {
@@ -181,7 +181,7 @@ export default function AvailabilityPage() {
               </h2>
               <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
                 <CalendarPlusIcon aria-hidden="true" />
-                Add
+                New slot
               </Button>
             </div>
 
@@ -193,7 +193,7 @@ export default function AvailabilityPage() {
                 description="Add availability so customers can book this day."
                 action={
                   <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
-                    Create a slot
+                    New slot
                   </Button>
                 }
               />
@@ -251,30 +251,30 @@ function SlotRow({ slot, timezone, onChanged }: { slot: Slot; timezone: string; 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
       <div>
-        <p className="text-sm font-medium">
+        <p className="font-mono text-sm tabular-nums font-medium">
           {formatTime(new Date(slot.starts_at), timezone)} –{" "}
           {formatTime(new Date(slot.ends_at), timezone)}
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
+          <span className="ml-2 font-sans text-xs font-normal text-ink-soft">
             {formatDuration(slot.starts_at, slot.ends_at)}
           </span>
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="mt-0.5 text-xs text-ink-soft">
           Created {new Date(slot.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
         </p>
       </div>
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
+            "inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset",
             slot.status === "open"
-              ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20"
-              : "bg-neutral-100 text-neutral-600 ring-neutral-500/20",
+              ? "bg-success-soft text-success ring-success/25"
+              : "bg-muted text-ink-soft ring-rule-strong",
           )}
         >
           <span
             className={cn(
-              "size-1.5 rounded-full",
-              slot.status === "open" ? "bg-emerald-500" : "bg-neutral-400",
+              "size-1.5 rounded-[1px]",
+              slot.status === "open" ? "bg-success" : "bg-rule-strong",
             )}
             aria-hidden="true"
           />

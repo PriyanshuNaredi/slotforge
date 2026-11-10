@@ -156,7 +156,7 @@ export function DiscoverContent() {
           </div>
 
           {providerId ? (
-            <div className="flex items-center justify-between gap-2 rounded-xl border bg-brand-soft px-4 py-3 text-sm">
+            <div className="flex items-center justify-between gap-2 rounded-md border border-coral/30 bg-coral-wash/60 px-4 py-3 text-sm">
               <p className="flex min-w-0 items-center gap-2">
                 <UserRoundIcon
                   className="size-4 shrink-0 text-brand-strong"
@@ -190,7 +190,7 @@ export function DiscoverContent() {
           ) : list.loading && slots.length === 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="rounded-xl border bg-card p-5">
+                <div key={index} className="rounded-lg border border-rule bg-card p-5">
                   <Skeleton className="h-4 w-28" />
                   <Skeleton className="mt-3 h-3 w-44" />
                   <Skeleton className="mt-5 h-8 w-full" />
@@ -220,7 +220,7 @@ export function DiscoverContent() {
 
               {pageCount > 1 ? (
                 <div className="flex items-center justify-between pt-2">
-                  <p className="text-sm text-muted-foreground" aria-live="polite">
+                  <p className="text-sm text-ink-soft" aria-live="polite">
                     Page {page + 1} of {pageCount} · {total} slots
                   </p>
                   <div className="flex gap-2">

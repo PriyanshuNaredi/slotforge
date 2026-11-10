@@ -1,49 +1,50 @@
 @import "tailwindcss";
 
 /*
- * SlotForge design system — Phase 13B palette.
+ * SlotForge design system — Phase 14D.
  *
- * Navy #172B4D (sidebars, navigation, ink) · cream #F6F0E5 (page background)
- * coral #F17C69 (primary actions, selected dates) · white (cards)
- * blue-grey #DCE5E9 (muted surfaces, borders) · green #344B43 (success)
+ * Warm, polished scheduling SaaS: cream page surfaces, white cards, navy ink,
+ * coral primary actions. Depth comes from layered borders, soft shadows and
+ * the floating hero preview. Motion is CSS-only: short entrance fades, a
+ * gentle float on the hero's floating elements — all silenced under
+ * prefers-reduced-motion by the global rule below.
  *
- * Accessibility notes: coral buttons use navy text (5.3:1); coral text on
- * light surfaces uses the darkened --brand-strong (4.9:1); navy text on
- * cream is ~10:1.
+ * Accessibility: coral #F17C69 carries navy #172B4D text at 5.3:1; coral
+ * text on light surfaces uses --coral-strong (4.9:1); body ink sits ~10:1
+ * on cream. Status tints pair dark text on light washes, all >= 4.5:1.
  */
 
 :root {
-  --radius: 0.625rem;
+  --cream: #f6f0e5;
+  --ink: #14263e;
+  --ink-soft: #4c5f7a;
 
   --navy: #172b4d;
-  --navy-soft: #24406b;
-  --cream: #f6f0e5;
   --coral: #f17c69;
   --coral-strong: #a34e3f;
-  --coral-soft: #fbe3de;
+  --coral-wash: #fbe3de;
   --blue-grey: #dce5e9;
-  --success: #344b43;
 
   --background: var(--cream);
-  --foreground: var(--navy);
+  --foreground: var(--ink);
 
   --card: #ffffff;
-  --card-foreground: var(--navy);
+  --card-foreground: var(--ink);
 
   --popover: #ffffff;
-  --popover-foreground: var(--navy);
+  --popover-foreground: var(--ink);
 
   --primary: var(--coral);
   --primary-foreground: var(--navy);
 
-  --secondary: var(--blue-grey);
-  --secondary-foreground: var(--navy);
+  --secondary: #eef1f5;
+  --secondary-foreground: var(--ink);
 
-  --muted: #e9eef1;
-  --muted-foreground: #44597e;
+  --muted: #eef1f5;
+  --muted-foreground: var(--ink-soft);
 
-  --accent: #eef1f4;
-  --accent-foreground: var(--navy);
+  --accent: #f1ece1;
+  --accent-foreground: var(--ink);
 
   --destructive: #b3362b;
   --destructive-foreground: #ffffff;
@@ -55,10 +56,16 @@
   /* Brand aliases kept for existing components. */
   --brand: var(--coral);
   --brand-foreground: var(--navy);
-  --brand-soft: var(--coral-soft);
+  --brand-soft: var(--coral-wash);
   --brand-strong: var(--coral-strong);
 
-  --success-soft: #e2eae6;
+  --success: #2f5d46;
+  --success-wash: #e3eee7;
+  --pending: #8a5a12;
+  --pending-wash: #f6ecd9;
+  --completed: #41597a;
+  --completed-wash: #e7edf4;
+  --success-soft: var(--success-wash);
   --success-foreground: var(--success);
 }
 
@@ -87,17 +94,25 @@
   --color-brand-soft: var(--brand-soft);
   --color-brand-strong: var(--brand-strong);
   --color-navy: var(--navy);
-  --color-navy-soft: var(--navy-soft);
   --color-cream: var(--cream);
   --color-coral: var(--coral);
   --color-coral-strong: var(--coral-strong);
-  --color-coral-soft: var(--coral-soft);
+  --color-coral-wash: var(--coral-wash);
   --color-blue-grey: var(--blue-grey);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--border);
+  --color-rule-strong: var(--input);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-success-foreground: var(--success-foreground);
+  --color-pending: var(--pending);
+  --color-pending-wash: var(--pending-wash);
+  --color-completed: var(--completed);
+  --color-completed-wash: var(--completed-wash);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-archivo);
+  --font-display: var(--font-besley);
   --font-mono: var(--font-geist-mono);
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -105,6 +120,8 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
+
+  --radius: 0.625rem;
 }
 
 @keyframes enter {
@@ -145,14 +162,68 @@
   --tw-exit-scale: 0.95;
 }
 
+/* --- Phase 14D motion -----------------------------------------------------
+ * Short, intentional entrances plus one gentle float. The global
+ * prefers-reduced-motion rule below collapses all of these to instant.
+ * ------------------------------------------------------------------------ */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.45s ease-out both;
+}
+
+@utility animate-pop {
+  animation: pop-in 0.35s ease-out both;
+}
+
+@utility animate-float {
+  animation: float-y 6s ease-in-out infinite;
+}
+
+@utility animate-float-late {
+  animation: float-y 7s ease-in-out 1.2s infinite;
+}
+
 @layer base {
   * {
     border-color: var(--border);
-    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+    outline-color: color-mix(in oklab, var(--ring) 60%, transparent);
   }
 
   html {
     scroll-behavior: smooth;
+    color-scheme: light;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -173,26 +244,33 @@
     background: var(--background);
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   ::selection {
-    background: var(--coral-soft);
-    color: var(--navy);
-  }
-}
-
-@layer utilities {
-  /* Subtle grid texture for the hero backdrop. */
-  .bg-grid {
-    background-image:
-      linear-gradient(to right, rgb(23 43 77 / 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(23 43 77 / 0.05) 1px, transparent 1px);
-    background-size: 44px 44px;
+    background: var(--coral-wash);
+    color: var(--ink);
   }
 
-  .bg-fade-b {
-    mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  ::placeholder {
+    color: #64748b;
+  }
+
+  /* Browser chrome carries the palette too. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--input) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--input);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
 }
 
@@ -202,18 +280,18 @@
  * ------------------------------------------------------------------------ */
 @layer components {
   .fc-wrapper {
-    --fc-classic-background: #ffffff;
-    --fc-classic-foreground: var(--navy);
-    --fc-classic-border: var(--blue-grey);
+    --fc-classic-background: var(--card);
+    --fc-classic-foreground: var(--ink);
+    --fc-classic-border: var(--border);
     --fc-classic-strong-border: #b9c8d0;
-    --fc-classic-faint: rgb(23 43 77 / 0.04);
-    --fc-classic-faint-foreground: #64778f;
-    --fc-classic-muted: #e9eef1;
-    --fc-classic-muted-foreground: #44597e;
-    --fc-classic-strong: rgb(23 43 77 / 0.12);
-    --fc-classic-button: #ffffff;
+    --fc-classic-faint: rgb(20 38 62 / 0.04);
+    --fc-classic-faint-foreground: #5a6b84;
+    --fc-classic-muted: #eef1f5;
+    --fc-classic-muted-foreground: var(--ink-soft);
+    --fc-classic-strong: rgb(20 38 62 / 0.12);
+    --fc-classic-button: var(--card);
     --fc-classic-button-border: var(--blue-grey);
-    --fc-classic-button-foreground: var(--navy);
+    --fc-classic-button-foreground: var(--ink);
     --fc-classic-button-outline: rgb(241 124 105 / 0.5);
     --fc-classic-button-strong: var(--coral);
     --fc-classic-button-strong-border: var(--coral);
@@ -238,5 +316,17 @@
   .fc-wrapper .fc-scrollgrid {
     border-radius: 0.75rem;
     overflow: hidden;
+  }
+
+  /* Event chips: keep titles inside their box (ellipsis via the stable
+     sf-event hook — the classic theme hashes its own class names). */
+  .fc-wrapper .sf-event {
+    overflow: hidden;
+  }
+
+  .fc-wrapper .sf-event div {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }

@@ -91,14 +91,22 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">
+      <h1 className="font-display text-[1.65rem] font-semibold leading-tight tracking-tight">
         {isLogin ? "Welcome back" : "Create your account"}
       </h1>
-      <p className="mt-1.5 text-sm text-muted-foreground">
+      <p className="mt-1.5 text-sm text-ink-soft">
         {isLogin
           ? "Sign in to manage your appointments."
           : "Book open slots the moment providers publish them."}
       </p>
+
+      {!isLogin ? (
+        <p className="mt-4 rounded-sm border border-rule bg-card px-3.5 py-2.5 text-xs leading-relaxed text-ink-soft">
+          Accounts sign in as customers. Provider accounts are provisioned by
+          the SlotForge team — write to us after you register and we&apos;ll
+          set up your workspace.
+        </p>
+      ) : null}
 
       <form
         onSubmit={handleSubmit(onSubmit)}
@@ -171,7 +179,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="mt-6 text-center text-sm text-ink-soft">
         {isLogin ? (
           <>
             New to SlotForge?{" "}
@@ -188,13 +196,6 @@ export function AuthForm({ mode }: AuthFormProps) {
           </>
         )}
       </p>
-
-      {!isLogin ? (
-        <p className="mt-4 text-center text-xs text-muted-foreground/80">
-          Accounts are created with the customer role. Provider accounts are
-          provisioned by the SlotForge team.
-        </p>
-      ) : null}
     </div>
   );
 }

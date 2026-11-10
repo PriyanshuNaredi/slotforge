@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { CheckIcon } from "lucide-react";
 
 import { Logo } from "@/components/shared/logo";
@@ -25,25 +24,16 @@ export default function AuthLayout({
           aria-hidden="true"
         />
         <div className="relative">
-          <Link href="/" className="inline-flex items-center gap-2 font-semibold text-cream">
-            <span className="flex size-7 items-center justify-center rounded-md bg-coral text-navy">
-              <svg viewBox="0 0 16 16" fill="none" className="size-4" aria-hidden="true">
-                <rect x="1.5" y="2.5" width="13" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M1.5 6h13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                <rect x="4.5" y="8.5" width="4" height="3.5" rx="1" fill="currentColor" />
-              </svg>
-            </span>
-            SlotForge
-          </Link>
+          <Logo href="/" tone="inverse" />
         </div>
         <div className="relative max-w-md">
-          <h2 className="text-3xl font-semibold tracking-tight text-balance">
+          <h2 className="font-display text-4xl font-semibold tracking-tight text-balance">
             The calendar that books itself.
           </h2>
-          <ul className="mt-6 space-y-3">
+          <ul className="mt-8 space-y-3 border-t border-cream/15 pt-6">
             {points.map((point) => (
-              <li key={point} className="flex items-start gap-2.5 text-sm text-cream/80">
-                <CheckIcon className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
+              <li key={point} className="flex items-start gap-3 text-sm text-cream/80">
+                <CheckIcon className="mt-0.5 size-4 shrink-0 text-coral" aria-hidden="true" />
                 {point}
               </li>
             ))}

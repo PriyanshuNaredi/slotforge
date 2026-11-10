@@ -3,8 +3,8 @@ import {
   BellRingIcon,
   CalendarClockIcon,
   CalendarRangeIcon,
+  CheckCircle2Icon,
   LockIcon,
-  SearchIcon,
   UserPlusIcon,
   ZapIcon,
 } from "lucide-react";
@@ -28,36 +28,46 @@ const steps = [
   },
 ];
 
-const features = [
+const featureGroups = [
   {
-    icon: ZapIcon,
-    title: "Instant confirmations",
-    body: "No approval queues. A booking is confirmed the moment it's made — the customer leaves with a real appointment.",
+    audience: "For customers",
+    items: [
+      {
+        icon: ZapIcon,
+        title: "Booked means booked",
+        body: "Your confirmation is instant, and the slot locks for everyone else the moment it's yours.",
+      },
+      {
+        icon: CalendarClockIcon,
+        title: "Every time, in your time",
+        body: "Slots carry the provider's timezone and render in yours. What you see on screen is what you attend.",
+      },
+      {
+        icon: CheckCircle2Icon,
+        title: "Your appointments, one list",
+        body: "Book, reschedule, or cancel from a single place — with the full history kept and legible.",
+      },
+    ],
   },
   {
-    icon: LockIcon,
-    title: "Double-booking proof",
-    body: "A unique constraint at the database layer guarantees one active booking per slot. Two customers clicking at once can't break it.",
-  },
-  {
-    icon: CalendarClockIcon,
-    title: "Timezone-aware by default",
-    body: "Slot times carry the provider's timezone and render accordingly. Cross-country appointments, displayed honestly.",
-  },
-  {
-    icon: SearchIcon,
-    title: "Search that searches",
-    body: "Filter public availability by provider and date range with server-side pagination — backed by Redis caching for speed.",
-  },
-  {
-    icon: LockIcon,
-    title: "Sessions that stay put",
-    body: "Access and refresh tokens live in HttpOnly cookies managed by the server. Page JavaScript never sees a credential.",
-  },
-  {
-    icon: BellRingIcon,
-    title: "Notification-ready",
-    body: "Booking events and delivery tracking are modeled in the platform core, ready to switch on when endpoints land.",
+    audience: "For providers",
+    items: [
+      {
+        icon: CalendarRangeIcon,
+        title: "Open a slot, watch it fill",
+        body: "Publish availability in seconds; customers act on it without a single phone call.",
+      },
+      {
+        icon: LockIcon,
+        title: "Every ending, on record",
+        body: "Mark completions and no-shows as they happen. Your calendar reflects what actually occurred.",
+      },
+      {
+        icon: BellRingIcon,
+        title: "Availability that manages itself",
+        body: "A cancelled booking reopens its slot automatically. The published calendar is always the truth.",
+      },
+    ],
   },
 ];
 
@@ -66,24 +76,35 @@ export default function LandingPage() {
     <>
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="bg-grid bg-fade-b absolute inset-0" aria-hidden="true" />
         <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:pb-28 lg:pt-24">
           <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+            <span
+              className="animate-fade-up inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-xs font-medium text-ink-soft"
+              style={{ animationDelay: "0ms" }}
+            >
               <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
               Real-time availability · instant confirmations
             </span>
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.4rem] lg:leading-[1.08]">
+            <h1
+              className="animate-fade-up mt-5 font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.4rem] lg:leading-[1.08]"
+              style={{ animationDelay: "80ms" }}
+            >
               Open a slot.
               <br />
               Watch it fill.
             </h1>
-            <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
+            <p
+              className="animate-fade-up mt-5 max-w-lg text-base leading-relaxed text-ink-soft sm:text-lg"
+              style={{ animationDelay: "160ms" }}
+            >
               SlotForge turns your availability into a storefront. Publish open
               slots, and customers book confirmed appointments on the spot —
               no forms, no back-and-forth, no double-bookings.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div
+              className="animate-fade-up mt-8 flex flex-wrap items-center gap-3"
+              style={{ animationDelay: "240ms" }}
+            >
               <Button asChild size="lg">
                 <Link href="/register">Create a free account</Link>
               </Button>
@@ -91,11 +112,23 @@ export default function LandingPage() {
                 <a href="#how-it-works">See how it works</a>
               </Button>
             </div>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Free for customers. Providers publish their first slot in minutes.
+            <p
+              className="animate-fade-up mt-4 border-t border-border/70 pt-4 text-sm text-ink-soft"
+              style={{ animationDelay: "320ms" }}
+            >
+              Free for customers.{" "}
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-1 font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+              >
+                Providers: publish your availability
+              </Link>
             </p>
           </div>
-          <div className="px-2 sm:px-8 lg:px-0">
+          <div
+            className="animate-fade-up px-2 sm:px-8 lg:px-0"
+            style={{ animationDelay: "200ms" }}
+          >
             <HeroVisual />
           </div>
         </div>
@@ -105,17 +138,21 @@ export default function LandingPage() {
       <section id="how-it-works" className="scroll-mt-16 border-t border-border/70 bg-card/40">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
           <div className="max-w-xl">
-            <h2 className="text-3xl font-semibold tracking-tight">
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-balance">
               Three moving parts. Zero coordination tax.
             </h2>
-            <p className="mt-3 text-muted-foreground">
+            <p className="mt-3 text-ink-soft">
               The entire booking lifecycle, from a provider opening their
               calendar to a completed appointment.
             </p>
           </div>
           <ol className="mt-12 grid gap-10 lg:grid-cols-3 lg:gap-8">
             {steps.map((step, index) => (
-              <li key={step.title} className="relative">
+              <li
+                key={step.title}
+                style={{ animationDelay: `${index * 120}ms` }}
+                className="animate-fade-up relative"
+              >
                 <div className="flex items-center gap-3">
                   <span className="flex size-8 items-center justify-center rounded-full bg-primary font-mono text-sm font-medium text-primary-foreground">
                     {index + 1}
@@ -126,7 +163,7 @@ export default function LandingPage() {
                   />
                 </div>
                 <h3 className="mt-4 font-semibold">{step.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft">
                   {step.body}
                 </p>
               </li>
@@ -139,22 +176,32 @@ export default function LandingPage() {
       <section id="features" className="scroll-mt-16">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
           <div className="max-w-xl">
-            <h2 className="text-3xl font-semibold tracking-tight">
-              Built like infrastructure, not a form builder.
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-balance">
+              Built for the moment of booking.
             </h2>
-            <p className="mt-3 text-muted-foreground">
-              Transactional booking logic, cached reads and role-scoped
-              access — the details that matter once real people depend on it.
+            <p className="mt-3 text-ink-soft">
+              Transactional booking logic underneath; a calendar both sides can
+              trust on the surface.
             </p>
           </div>
-          <div className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
-              <div key={feature.title}>
-                <feature.icon className="size-5 text-brand" aria-hidden="true" />
-                <h3 className="mt-3 font-semibold">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {feature.body}
-                </p>
+          <div className="mt-12 grid gap-x-8 gap-y-12 lg:grid-cols-2">
+            {featureGroups.map((group) => (
+              <div key={group.audience}>
+                <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-strong">
+                  <span className="h-px w-6 bg-coral" aria-hidden="true" />
+                  {group.audience}
+                </h3>
+                <div className="mt-5 grid gap-x-6 gap-y-8 sm:grid-cols-3">
+                  {group.items.map((item) => (
+                    <div key={item.title}>
+                      <item.icon className="size-5 text-brand" aria-hidden="true" />
+                      <h4 className="mt-3 text-sm font-semibold">{item.title}</h4>
+                      <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
+                        {item.body}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -166,12 +213,12 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="max-w-xl">
-              <h2 className="text-3xl font-semibold tracking-tight">
+              <h2 className="font-display text-3xl font-semibold tracking-tight text-balance">
                 On SlotForge right now
               </h2>
-              <p className="mt-3 text-muted-foreground">
-                This isn&apos;t a screenshot — it&apos;s the live public availability
-                feed, straight from the booking engine.
+              <p className="mt-3 text-ink-soft">
+                This isn&apos;t a screenshot — it&apos;s the live public
+                availability feed, straight from the booking engine.
               </p>
             </div>
             <Button asChild variant="ghost" size="sm">
@@ -182,7 +229,7 @@ export default function LandingPage() {
             </Button>
           </div>
           <div className="mt-10">
-            <AvailabilityPreview />
+            <AvailabilityPreview limit={6} />
           </div>
         </div>
       </section>
@@ -200,8 +247,8 @@ export default function LandingPage() {
               aria-hidden="true"
             />
             <div className="relative">
-              <h2 className="mx-auto max-w-xl text-3xl font-semibold tracking-tight text-cream text-balance">
-                Stop asking “when works for you?”
+              <h2 className="mx-auto max-w-xl font-display text-3xl font-semibold tracking-tight text-cream text-balance">
+                Stop asking &ldquo;when works for you?&rdquo;
               </h2>
               <p className="mx-auto mt-3 max-w-md text-cream/70">
                 Put your availability where customers can act on it. The

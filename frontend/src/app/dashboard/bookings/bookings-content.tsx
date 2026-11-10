@@ -14,7 +14,7 @@ import { cancelBooking, listCustomerBookings } from "@/lib/api/endpoints";
 import type { Booking, BookingStatus } from "@/lib/api/types";
 import { ApiError, toErrorMessage } from "@/lib/api/client";
 import { customerCanCancel } from "@/lib/booking-status";
-import { formatRelative, formatSlotRange } from "@/lib/format";
+import { formatDate, formatSlotRange } from "@/lib/format";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, ErrorState } from "@/components/shared/states";
@@ -30,7 +30,7 @@ const PAGE_SIZE = 10;
 
 const tabs = [
   { value: "", label: "All" },
-  { value: "confirmed", label: "Upcoming" },
+  { value: "confirmed", label: "Confirmed" },
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
   { value: "no_show", label: "No-shows" },
@@ -126,7 +126,7 @@ export function CustomerBookingsContent() {
       ) : list.loading && bookings.length === 0 ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-20 w-full rounded-xl" />
+            <Skeleton key={index} className="h-20 w-full rounded-lg" />
           ))}
         </div>
       ) : !list.loading && bookings.length === 0 ? (
@@ -147,7 +147,7 @@ export function CustomerBookingsContent() {
       ) : (
         <>
           <ul
-            className={`divide-y rounded-xl border bg-card ${
+            className={`divide-y rounded-lg border border-rule bg-card ${
               list.loading ? "opacity-60 transition-opacity" : ""
             }`}
           >
@@ -161,14 +161,15 @@ export function CustomerBookingsContent() {
                         href={`/dashboard/bookings/${booking.id}`}
                         className="text-sm font-medium underline-offset-4 hover:underline"
                       >
-                        {slot?.provider_name ?? "Booking"}
+                        {slot?.provider_name ?? "Provider"}
                       </Link>
                       <StatusBadge status={booking.status} />
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 font-mono text-sm tabular-nums text-ink-soft">
                       {slot
                         ? formatSlotRange(slot.starts_at, slot.ends_at, slot.timezone)
-                        : `Booked ${formatRelative(new Date(booking.created_at))}`}
+                        : // Slot no longer published — the booking's own date keeps the row legible.
+                          `Booked ${formatDate(new Date(booking.created_at))}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -193,7 +194,7 @@ export function CustomerBookingsContent() {
 
           {pageCount > 1 ? (
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground" aria-live="polite">
+              <p className="text-sm text-ink-soft" aria-live="polite">
                 Page {page + 1} of {pageCount} · {total} bookings
               </p>
               <div className="flex gap-2">

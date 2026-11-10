@@ -90,12 +90,12 @@ export function BookingDetailDialog({
               </DialogHeader>
 
               <div className="space-y-4">
-                <div className="rounded-lg border bg-background p-4">
-                  <p className="flex items-center gap-2 text-sm font-medium">
-                    <CalendarRangeIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+                <div className="rounded-md border border-rule bg-background p-4">
+                  <p className="flex items-center gap-2 font-mono text-sm font-medium tabular-nums">
+                    <CalendarRangeIcon className="size-4 text-coral-strong" aria-hidden="true" />
                     {formatSlotRange(booking.slot_starts_at, booking.slot_ends_at)}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-ink-soft">
                     {formatDuration(booking.slot_starts_at, booking.slot_ends_at)} · Slot #
                     {booking.slot_id.slice(0, 8)}
                   </p>
@@ -103,7 +103,7 @@ export function BookingDetailDialog({
 
                 <div>
                   <p className="text-sm font-medium">Customer notes</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm text-ink-soft">
                     {booking.notes?.trim() ? booking.notes : "No notes added."}
                   </p>
                 </div>
@@ -111,11 +111,9 @@ export function BookingDetailDialog({
                 <Separator />
 
                 <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-                  <dt className="text-muted-foreground">Booking ID</dt>
-                  <dd className="font-mono text-xs leading-6">{booking.id}</dd>
-                  <dt className="text-muted-foreground">Customer ID</dt>
-                  <dd className="font-mono text-xs leading-6">{booking.customer_id}</dd>
-                  <dt className="text-muted-foreground">Last update</dt>
+                  <dt className="text-ink-soft">Booking ref</dt>
+                  <dd className="font-mono text-xs leading-6">{booking.id.slice(0, 8)}</dd>
+                  <dt className="text-ink-soft">Last update</dt>
                   <dd>
                     {new Date(booking.updated_at).toLocaleString("en-US", {
                       month: "short",

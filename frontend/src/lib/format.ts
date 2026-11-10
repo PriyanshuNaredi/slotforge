@@ -104,6 +104,7 @@ export function formatDuration(startsAt: string, endsAt: string): string {
 /** "in 2 days" / "3 days ago" style relative time. */
 export function formatRelative(date: Date): string {
   const diffMs = date.getTime() - Date.now();
+  if (Math.abs(diffMs) < 60_000) return "just now";
   const diffDays = Math.round(diffMs / 86_400_000);
   const rtf = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
   if (Math.abs(diffDays) < 1) {

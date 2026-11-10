@@ -101,7 +101,7 @@ export default function ProviderProfilePage() {
           }
         />
       ) : profile.loading ? (
-        <Skeleton className="h-72 w-full rounded-xl" />
+        <Skeleton className="h-72 w-full rounded-lg" />
       ) : profile.data ? (
         <ExistingProfile profile={profile.data} />
       ) : (

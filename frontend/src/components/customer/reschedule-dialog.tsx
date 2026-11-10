@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsyncData } from "@/hooks/use-async-data";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 8;
 
@@ -72,6 +73,9 @@ export function RescheduleDialog({
   );
   const total = list.data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // Hoisted so the slot list below can compare against it even after the
+  // render split narrows `selected` to null.
+  const selectedId = selected?.id ?? null;
 
   function close() {
     setSelected(null);
@@ -121,8 +125,8 @@ export function RescheduleDialog({
         {selected ? (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-              <div className="rounded-lg border border-dashed bg-muted/40 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="rounded-md border border-rule bg-muted/40 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">
                   Current
                 </p>
                 <p className="mt-1 text-sm font-medium">
@@ -130,24 +134,24 @@ export function RescheduleDialog({
                     ? formatFullDate(new Date(currentSlot.starts_at), currentSlot.timezone)
                     : "—"}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-mono text-sm tabular-nums text-ink-soft">
                   {currentSlot
                     ? `${formatTime(new Date(currentSlot.starts_at), currentSlot.timezone)} – ${formatTime(new Date(currentSlot.ends_at), currentSlot.timezone)} · ${formatDuration(currentSlot.starts_at, currentSlot.ends_at)}`
                     : ""}
                 </p>
               </div>
               <ArrowRightIcon
-                className="mx-auto size-4 text-muted-foreground"
+                className="mx-auto size-4 text-coral-strong"
                 aria-hidden="true"
               />
-              <div className="rounded-lg border border-brand/40 bg-brand-soft/60 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-brand-strong">
+              <div className="rounded-md border border-coral/40 bg-coral-wash/50 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-coral-strong">
                   New time
                 </p>
                 <p className="mt-1 text-sm font-medium">
                   {formatFullDate(new Date(selected.starts_at), selected.timezone)}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-mono text-sm tabular-nums text-ink-soft">
                   {formatTime(new Date(selected.starts_at), selected.timezone)} –{" "}
                   {formatTime(new Date(selected.ends_at), selected.timezone)} ·{" "}
                   {formatDuration(selected.starts_at, selected.ends_at)}
@@ -170,7 +174,7 @@ export function RescheduleDialog({
                 <ChevronLeftIcon aria-hidden="true" />
                 Back to times
               </Button>
-              <Button variant="brand" onClick={() => void confirm()} disabled={confirming}>
+              <Button onClick={() => void confirm()} disabled={confirming}>
                 {confirming ? (
                   <Loader2Icon className="animate-spin" aria-hidden="true" />
                 ) : null}
@@ -197,43 +201,71 @@ export function RescheduleDialog({
                 ))}
               </div>
             ) : !list.loading && slots.length === 0 ? (
-              <div className="rounded-lg border border-dashed bg-muted/40 px-4 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-md border border-rule bg-muted/40 px-4 py-6 text-center text-sm text-ink-soft">
                 No future availability from this provider right now. Check back
                 soon — you can also keep your current appointment.
               </div>
             ) : (
               <>
-                <ul
-                  role="listbox"
+                {/* Native radio group: correct semantics and free arrow-key
+                    roving — the old ul[role=listbox] with button children
+                    announced broken semantics to screen readers. */}
+                <div
+                  role="radiogroup"
                   aria-label="Available replacement slots"
-                  className={`max-h-64 space-y-2 overflow-y-auto pr-1 ${
+                  className={`max-h-64 space-y-4 overflow-y-auto pr-1 ${
                     list.loading ? "opacity-60 transition-opacity" : ""
                   }`}
                 >
-                  {slots.map((slot) => (
-                    <li key={slot.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelected(slot)}
-                        className="flex w-full items-center justify-between gap-3 rounded-lg border bg-background px-3.5 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand-soft/40 focus-visible:ring-[3px] focus-visible:ring-ring/40 cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2.5">
-                          <CalendarClockIcon
-                            className="size-4 shrink-0 text-muted-foreground"
-                            aria-hidden="true"
-                          />
-                          <span className="text-sm">{formatSlotRange(slot.starts_at, slot.ends_at, slot.timezone)}</span>
-                        </span>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {formatDuration(slot.starts_at, slot.ends_at)}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                  {slots.map((slot, index) => {
+                    const dayLabel = formatFullDate(new Date(slot.starts_at), slot.timezone);
+                    const prevLabel =
+                      index > 0
+                        ? formatFullDate(new Date(slots[index - 1].starts_at), slot.timezone)
+                        : null;
+                    const startsGroup = dayLabel !== prevLabel;
+                    return (
+                      <div key={slot.id}>
+                        {startsGroup ? (
+                          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">
+                            {dayLabel}
+                          </p>
+                        ) : null}
+                        <label
+                          className={cn(
+                            "flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border bg-background px-3.5 py-2.5 text-left transition-colors hover:border-coral",
+                            "has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-coral/40 has-[:checked]:border-coral has-[:checked]:bg-coral-wash/40",
+                            index > 0 && !startsGroup && "mt-2",
+                          )}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <input
+                              type="radio"
+                              name="reschedule-slot"
+                              value={slot.id}
+                              className="sr-only"
+                              checked={selectedId === slot.id}
+                              onChange={() => setSelected(slot)}
+                            />
+                            <CalendarClockIcon
+                              className="size-4 shrink-0 text-ink-soft"
+                              aria-hidden="true"
+                            />
+                            <span className="font-mono text-sm tabular-nums">
+                              {formatSlotRange(slot.starts_at, slot.ends_at, slot.timezone)}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-xs text-ink-soft">
+                            {formatDuration(slot.starts_at, slot.ends_at)}
+                          </span>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
                 {pageCount > 1 ? (
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground" aria-live="polite">
+                    <p className="text-xs text-ink-soft" aria-live="polite">
                       Page {page + 1} of {pageCount} · {total} slots
                     </p>
                     <div className="flex gap-2">

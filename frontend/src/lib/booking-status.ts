@@ -11,36 +11,36 @@ export interface BookingStatusMeta {
 export const BOOKING_STATUS_META: Record<BookingStatus, BookingStatusMeta> = {
   pending: {
     label: "Pending",
-    classes: "bg-amber-50 text-amber-700 ring-amber-600/20",
-    dot: "bg-amber-500",
+    classes: "bg-pending-wash text-pending ring-pending/25",
+    dot: "bg-pending",
   },
   confirmed: {
     label: "Confirmed",
-    classes: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-    dot: "bg-emerald-500",
+    classes: "bg-success-soft text-success ring-success/25",
+    dot: "bg-success",
   },
   cancelled: {
     label: "Cancelled",
-    classes: "bg-neutral-100 text-neutral-600 ring-neutral-500/20",
-    dot: "bg-neutral-400",
+    classes: "bg-muted text-ink-soft ring-rule-strong",
+    dot: "bg-rule-strong",
   },
   completed: {
     label: "Completed",
-    classes: "bg-sky-50 text-sky-700 ring-sky-600/20",
-    dot: "bg-sky-500",
+    classes: "bg-completed-wash text-completed ring-completed/25",
+    dot: "bg-completed",
   },
   no_show: {
     label: "No-show",
-    classes: "bg-red-50 text-red-700 ring-red-600/20",
-    dot: "bg-red-500",
+    classes: "bg-destructive/10 text-destructive ring-destructive/25",
+    dot: "bg-destructive",
   },
 };
 
 export function bookingStatusMeta(status: string): BookingStatusMeta {  return (
     BOOKING_STATUS_META[status as BookingStatus] ?? {
       label: status,
-      classes: "bg-neutral-100 text-neutral-600 ring-neutral-500/20",
-      dot: "bg-neutral-400",
+      classes: "bg-muted text-ink-soft ring-rule-strong",
+      dot: "bg-rule-strong",
     }
   );
 }

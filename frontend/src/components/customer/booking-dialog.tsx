@@ -14,7 +14,7 @@ import { ApiError, toErrorMessage } from "@/lib/api/client";
 import { createBooking } from "@/lib/api/endpoints";
 import type { AvailableSlot } from "@/lib/api/types";
 import { bookingNotesSchema } from "@/lib/validations";
-import { formatDuration, formatFullDate, formatTime, timeZoneAbbr } from "@/lib/format";
+import { formatDuration, formatFullDate, formatSlotRange, formatTime, timeZoneAbbr } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,12 +37,14 @@ export function BookingDialog({ slot, open, onOpenChange, onBooked }: BookingDia
   const [notes, setNotes] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [bookedSlotId, setBookedSlotId] = useState<string | null>(null);
+  // The created booking's id — the success screen links to it. Linking the
+  // slot id here 404s: booking ids are not slot ids.
+  const [bookedBookingId, setBookedBookingId] = useState<string | null>(null);
 
   function reset() {
     setNotes("");
     setError(null);
-    setBookedSlotId(null);
+    setBookedBookingId(null);
   }
 
   function handleOpenChange(next: boolean) {
@@ -62,11 +64,11 @@ export function BookingDialog({ slot, open, onOpenChange, onBooked }: BookingDia
     setPending(true);
     setError(null);
     try {
-      await createBooking({
+      const created = await createBooking({
         slot_id: slot.id,
         notes: parsed.data.notes ? parsed.data.notes : undefined,
       });
-      setBookedSlotId(slot.id);
+      setBookedBookingId(created.id);
       onBooked?.(slot.id);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -81,15 +83,15 @@ export function BookingDialog({ slot, open, onOpenChange, onBooked }: BookingDia
     }
   }
 
-  const booked = bookedSlotId !== null;
+  const booked = bookedBookingId !== null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md" showCloseButton={!pending}>
         {booked ? (
           <div className="py-2 text-center sm:text-left">
-            <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-emerald-500/15 sm:mx-0">
-              <CheckCircle2Icon className="size-6 text-emerald-600" aria-hidden="true" />
+            <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-success-soft sm:mx-0">
+              <CheckCircle2Icon className="size-6 text-success" aria-hidden="true" />
             </div>
             <DialogHeader className="mt-4 sm:text-left">
               <DialogTitle>Booking confirmed</DialogTitle>
@@ -98,12 +100,20 @@ export function BookingDialog({ slot, open, onOpenChange, onBooked }: BookingDia
                 dashboard immediately.
               </DialogDescription>
             </DialogHeader>
+            {slot ? (
+              <div className="mt-4 rounded-sm border border-rule bg-background px-4 py-3">
+                <p className="text-sm font-semibold">{slot.provider_name}</p>
+                <p className="mt-0.5 font-mono text-sm tabular-nums text-ink-soft">
+                  {formatSlotRange(slot.starts_at, slot.ends_at, slot.timezone)}
+                </p>
+              </div>
+            ) : null}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Done
               </Button>
-              <Button asChild variant="brand">
-                <Link href={`/dashboard/bookings/${bookedSlotId}`}>
+              <Button asChild>
+                <Link href={`/dashboard/bookings/${bookedBookingId}`}>
                   View booking
                 </Link>
               </Button>
@@ -170,7 +180,7 @@ export function BookingDialog({ slot, open, onOpenChange, onBooked }: BookingDia
               <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={pending}>
                 Cancel
               </Button>
-              <Button variant="brand" onClick={() => void confirm()} disabled={pending || !slot}>
+              <Button onClick={() => void confirm()} disabled={pending || !slot}>
                 {pending ? (
                   <Loader2Icon className="animate-spin" aria-hidden="true" />
                 ) : null}
