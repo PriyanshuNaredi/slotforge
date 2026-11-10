@@ -33,10 +33,12 @@ Next.js frontend.
 3. Run migrations and start the API:
 
    ```bash
+   node frontend/scripts/apply-migrations.mjs "$DATABASE_URL"
    go run ./cmd/api
    ```
 
-   The API listens on `:8080` (`/healthz`, `/readyz` for liveness).
+   The API listens on `:8080` (`/healthz`, `/readyz` for liveness —
+   `/readyz` verifies the database, schema, migrations, and Redis health).
 
 ## Frontend
 
