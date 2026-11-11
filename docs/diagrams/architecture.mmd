@@ -1,0 +1,27 @@
+%%{init: {"theme":"base","themeVariables":{"primaryColor":"#fbe3de","primaryTextColor":"#172b4d","primaryBorderColor":"#a34e3f","lineColor":"#5b6b82","secondaryColor":"#f6f0e5","tertiaryColor":"#ffffff","fontFamily":"ui-sans-serif,system-ui,sans-serif","fontSize":"14px","noteBkgColor":"#f6f0e5","noteBorderColor":"#a34e3f","noteTextColor":"#172b4d"}}}%%
+flowchart LR
+    subgraph browser["Browser"]
+        UI["Next.js App Router UI<br/>(React 19)"]
+    end
+
+    subgraph fe["Render web service — frontend (Node)"]
+        FE["Next.js 16 server<br/>sets HttpOnly auth cookies<br/>rewrites /api/v1/* to API_PROXY_ORIGIN"]
+    end
+
+    subgraph api["Render web service — API (Docker)"]
+        GIN["Go / Gin REST API<br/>auth · bookings · providers · notifications"]
+        WORKER["Email delivery worker<br/>in-process · SKIP LOCKED queue"]
+    end
+
+    PG[("PostgreSQL<br/>timestamptz · btree_gist<br/>exclusion constraint")]
+    RD[("Redis<br/>30 s slot-search cache<br/>fail-open")]
+    RESEND["Resend HTTP API"]
+    INBOX["Recipient inbox"]
+
+    UI -- "same-origin fetch /api/v1/*" --> FE
+    FE -- "Bearer JWT injected<br/>from HttpOnly cookie" --> GIN
+    GIN -- "pgx pool" --> PG
+    GIN -- "read/write<br/>app works without it" --> RD
+    GIN --> WORKER
+    WORKER -- "HTTPS, retried with backoff" --> RESEND
+    RESEND --> INBOX

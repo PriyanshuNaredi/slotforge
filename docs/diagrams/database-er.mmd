@@ -1,0 +1,79 @@
+%%{init: {"theme":"base","themeVariables":{"primaryColor":"#fbe3de","primaryTextColor":"#172b4d","primaryBorderColor":"#a34e3f","lineColor":"#5b6b82","secondaryColor":"#f6f0e5","tertiaryColor":"#ffffff","fontFamily":"ui-sans-serif,system-ui,sans-serif","fontSize":"13px","noteBkgColor":"#f6f0e5","noteBorderColor":"#a34e3f","noteTextColor":"#172b4d"}}}%%
+erDiagram
+    users ||--o| provider_profiles : "user_id (RESTRICT)"
+    users ||--o{ refresh_tokens : "user_id (CASCADE)"
+    users ||--o{ bookings : "customer_id (RESTRICT)"
+    users ||--o{ notifications : "user_id (CASCADE)"
+    users ||--o{ provider_unavailable_periods : "provider_id (CASCADE)"
+    provider_profiles ||--o{ availability_slots : "provider_id (RESTRICT)"
+    availability_slots ||--o{ bookings : "slot_id (RESTRICT)"
+    bookings ||--o{ notifications : "booking_id (SET NULL)"
+    notifications ||--|| notification_deliveries : "notification_id (CASCADE, UNIQUE)"
+
+    users {
+        uuid id PK
+        varchar email UK "unique on lower(email)"
+        text password_hash "bcrypt"
+        varchar role "customer | provider | admin"
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    provider_profiles {
+        uuid user_id PK, FK "1-to-1 with users"
+        varchar display_name
+        text bio
+        varchar timezone "default UTC"
+    }
+    availability_slots {
+        uuid id PK
+        uuid provider_id FK
+        timestamptz starts_at
+        timestamptz ends_at
+        varchar status "open | closed"
+    }
+    bookings {
+        uuid id PK
+        uuid slot_id FK
+        uuid customer_id FK
+        varchar status "pending | confirmed | cancelled | completed | no_show"
+        text notes
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    refresh_tokens {
+        uuid id PK
+        uuid user_id FK
+        bytea token_hash UK "SHA-256 of raw token"
+        timestamptz expires_at
+        timestamptz revoked_at "single-use rotation"
+    }
+    notifications {
+        uuid id PK
+        uuid user_id FK
+        uuid booking_id FK "nullable"
+        varchar type
+        varchar title
+        text message
+        timestamptz read_at
+        varchar delivery_status "pending | processing | sent | failed"
+        integer attempts
+    }
+    notification_deliveries {
+        uuid id PK
+        uuid notification_id FK, UK "one email per notification"
+        varchar recipient_email
+        varchar status
+        integer attempts
+        timestamptz available_at "next retry time"
+        timestamptz locked_at
+        timestamptz sent_at
+        text last_error
+    }
+    provider_unavailable_periods {
+        uuid id PK
+        uuid provider_id FK
+        timestamptz starts_at
+        timestamptz ends_at
+        text reason
+    }

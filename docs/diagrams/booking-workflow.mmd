@@ -1,0 +1,20 @@
+%%{init: {"theme":"base","themeVariables":{"primaryColor":"#fbe3de","primaryTextColor":"#172b4d","primaryBorderColor":"#a34e3f","lineColor":"#5b6b82","secondaryColor":"#f6f0e5","tertiaryColor":"#ffffff","fontFamily":"ui-sans-serif,system-ui,sans-serif","fontSize":"14px","noteBkgColor":"#f6f0e5","noteBorderColor":"#a34e3f","noteTextColor":"#172b4d"}}}%%
+stateDiagram-v2
+    direction LR
+
+    [*] --> confirmed : Customer books an open slot — instant confirmation in one transaction
+
+    confirmed --> confirmed : Customer reschedules into another open slot
+    confirmed --> cancelled : Customer cancels, or provider declines
+    confirmed --> completed : Provider marks the visit completed
+    confirmed --> no_show : Provider marks a no-show
+
+    cancelled --> [*]
+    completed --> [*]
+    no_show --> [*]
+
+    note right of confirmed
+        Both sides see the same status vocabulary.
+        Cancellation by the provider never runs silently —
+        the customer is notified on every transition.
+    end note
